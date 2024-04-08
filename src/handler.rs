@@ -1,12 +1,13 @@
 use crate::redis::{RedisPool, ResponseData};
 
 use axum::{
-    body::{to_bytes, Body},
+    body::to_bytes,
     extract::{Request, State},
     response::{IntoResponse, Response},
 };
 use hyper::{HeaderMap, StatusCode};
 use reqwest::Client;
+use serde_json::{from_reader, Map, Value};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -19,7 +20,7 @@ pub async fn proxy(
     State(app): State<AppState>,
     req: Request,
 ) -> Result<Response, (StatusCode, String)> {
-    let method = req.method();
+    let method = req.method().to_string();
     let path = req.uri().path();
     let url = if path.starts_with("/URL_") {
         let url = std::env::var(path.strip_prefix('/').unwrap()).unwrap_or_default();
@@ -74,9 +75,20 @@ pub async fn proxy(
     }
 
     let res = {
-        println!("proxying: {} {}", method, url);
+        let method = req.method();
+        let json_mask = extract_header(req.headers(), "x-json-mask", || "".to_string())
+            .split(',')
+            .filter_map(|s| {
+                let s = s.trim();
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_string())
+                }
+            })
+            .collect::<Vec<_>>();
         let mut headers = req.headers().clone();
-        let mut rreq = reqwest::Request::new(method.clone(), url);
+        let mut rreq = reqwest::Request::new(method.clone(), url.clone());
         headers.remove(http::header::HOST);
         headers.remove(http::header::FORWARDED);
         headers.remove(http::header::HeaderName::from_static("x-forwarded-for"));
@@ -107,15 +119,31 @@ pub async fn proxy(
             .to_vec();
 
         if status == StatusCode::OK {
-            let data = ResponseData::from_response(&headers, &res_body);
-            let _ = ResponseData::set(&app.redis_client, &idempotency_key, data)
+            let data = if !json_mask.is_empty()
+                && headers
+                    .get("content-type")
+                    .is_some_and(|v| v.to_str().is_ok_and(|v| v.contains("application/json")))
+            {
+                let obj: Value = from_reader(&res_body[..])
+                    .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+                let mut new_obj = Map::with_capacity(json_mask.len());
+                for k in json_mask {
+                    if let Some(v) = obj.get(&k) {
+                        new_obj.insert(k, v.clone());
+                    }
+                }
+                let res_body = serde_json::to_vec(&new_obj)
+                    .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+                ResponseData::from_response(&headers, &res_body)
+            } else {
+                ResponseData::from_response(&headers, &res_body)
+            };
+
+            let _ = ResponseData::set(&app.redis_client, &idempotency_key, &data)
                 .await
                 .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
-            let mut res = Response::new(Body::from(res_body));
-            *res.status_mut() = status;
-            *res.headers_mut() = headers;
 
-            Ok(res)
+            Ok(data.into_response())
         } else if status.is_success() {
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -130,10 +158,29 @@ pub async fn proxy(
         }
     };
 
-    if res.is_err() {
-        let _ = ResponseData::clear(&app.redis_client, &idempotency_key).await;
+    match res {
+        Ok(res) => {
+            log::info!(target: "handler",
+                action = "proxying",
+                method = method,
+                url = url.to_string(),
+                status = 200u16,
+                idempotency_key = idempotency_key;
+                "");
+            Ok(res)
+        }
+        Err((status, msg)) => {
+            let _ = ResponseData::clear(&app.redis_client, &idempotency_key).await;
+            log::warn!(target: "handler",
+                action = "proxying",
+                method = method,
+                url = url.to_string(),
+                status = status.as_u16(),
+                idempotency_key = idempotency_key;
+            "");
+            Err((status, msg))
+        }
     }
-    res
 }
 
 pub fn extract_header(hm: &HeaderMap, key: &str, or: impl FnOnce() -> String) -> String {

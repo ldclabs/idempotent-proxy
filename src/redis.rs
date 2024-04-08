@@ -102,10 +102,10 @@ impl ResponseData {
         Ok(())
     }
 
-    pub async fn set(pool: &RedisPool, key: &str, data: Self) -> anyhow::Result<bool> {
+    pub async fn set(pool: &RedisPool, key: &str, data: &Self) -> anyhow::Result<bool> {
         let conn = pool.get().await?;
         let mut buf = Vec::new();
-        into_writer(&data, &mut buf)?;
+        into_writer(data, &mut buf)?;
         let res = conn
             .set_with_options(
                 key,
@@ -136,7 +136,7 @@ impl IntoResponse for ResponseData {
         *res.status_mut() = StatusCode::OK;
         *res.version_mut() = http::Version::HTTP_11;
         for (ref k, v) in self.headers {
-            res.headers_mut().insert(
+            res.headers_mut().append(
                 HeaderName::from_bytes(k.as_bytes()).unwrap(),
                 HeaderValue::from_bytes(v.as_slice()).unwrap(),
             );
