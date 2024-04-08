@@ -6,8 +6,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{engine::general_purpose, Engine};
-use bitcoin::{key::Secp256k1, secp256k1};
 use hyper::{HeaderMap, StatusCode};
+use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 use reqwest::Client;
 use serde_json::{from_reader, Map, Value};
 use sha3::{Digest, Sha3_256};
@@ -59,33 +59,9 @@ pub async fn proxy(
 
     // auth
     if let Ok(pub_key) = std::env::var("TOKEN_PUB_KEY") {
-        let pub_key = general_purpose::URL_SAFE_NO_PAD
-            .decode(pub_key.as_bytes())
-            .map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
         let token = extract_header(req.headers(), "authorization", || "".to_string());
-        if !token.starts_with("Bearer ") {
-            return Err((StatusCode::UNAUTHORIZED, "missing Bearer token".to_string()));
-        }
-        let token = general_purpose::URL_SAFE_NO_PAD
-            .decode(token.strip_prefix("Bearer ").unwrap().as_bytes())
-            .map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
-        let token: (Vec<u8>, Vec<u8>) = ciborium::from_reader(token.as_slice())
-            .map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
-        let digest = sha3_256(&token.0);
-        let secp = Secp256k1::verification_only();
-        let signature = secp256k1::schnorr::Signature::from_slice(&token.1)
-            .map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
-        let pub_key = secp256k1::PublicKey::from_slice(&pub_key)
-            .map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
-        if secp
-            .verify_schnorr(
-                &signature,
-                &secp256k1::Message::from_digest_slice(&digest).unwrap(),
-                &pub_key.into(),
-            )
-            .is_err()
-        {
-            return Err((StatusCode::UNAUTHORIZED, "invalid access_token".to_string()));
+        if let Err(err) = verify_token(&pub_key, &token) {
+            return Err((StatusCode::UNAUTHORIZED, err));
         }
     }
 
@@ -139,6 +115,7 @@ pub async fn proxy(
         let mut rreq = reqwest::Request::new(method.clone(), url.clone());
         headers.remove(http::header::HOST);
         headers.remove(http::header::FORWARDED);
+        headers.remove(http::header::HeaderName::from_static("authorization"));
         headers.remove(http::header::HeaderName::from_static("x-forwarded-for"));
         headers.remove(http::header::HeaderName::from_static("x-forwarded-host"));
         headers.remove(http::header::HeaderName::from_static("x-forwarded-proto"));
@@ -225,7 +202,7 @@ pub async fn proxy(
                 url = url.to_string(),
                 status = status.as_u16(),
                 idempotency_key = idempotency_key;
-            "");
+                "{}", msg);
             Err((status, msg))
         }
     }
@@ -245,4 +222,43 @@ pub fn sha3_256(data: &[u8]) -> [u8; 32] {
     let mut hasher = Sha3_256::new();
     hasher.update(data);
     hasher.finalize().into()
+}
+
+fn verify_token(pub_key: &str, access_token: &str) -> Result<(), String> {
+    let pub_key = general_purpose::URL_SAFE_NO_PAD
+        .decode(pub_key.as_bytes())
+        .map_err(|err| err.to_string())?;
+    if !access_token.starts_with("Bearer ") {
+        return Err("missing Bearer token".to_string());
+    }
+    let token = general_purpose::URL_SAFE_NO_PAD
+        .decode(access_token.strip_prefix("Bearer ").unwrap().as_bytes())
+        .map_err(|err| err.to_string())?;
+    let token: (Vec<u8>, Vec<u8>) =
+        ciborium::from_reader(token.as_slice()).map_err(|err| err.to_string())?;
+    let digest = sha3_256(&token.0);
+
+    let signature = Signature::try_from(token.1.as_slice()).map_err(|err| err.to_string())?;
+    let pub_key = VerifyingKey::from_sec1_bytes(&pub_key).map_err(|err| err.to_string())?;
+    if pub_key
+        .verify_prehash(digest.as_slice(), &signature)
+        .is_err()
+    {
+        return Err("access_token verify failed".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_challenge() {
+        let res = verify_token(
+            "A6t1U8kc10AbLJ3-V1avU4rYvmAsYjXuzY0kPublttot",
+            "Bearer gooAAAAA...HMY6w",
+        );
+        println!("{:?}", res);
+    }
 }
