@@ -64,7 +64,20 @@ pub async fn proxy(
             .await
             .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
         {
-            Some(res) => return Ok(res.into_response()),
+            Some(res) => {
+                // if !method.is_safe() {
+                //     // drain the body
+                //     let _ = to_bytes(req.into_body(), 1024 * 1024 * 2).await;
+                // }
+                log::info!(target: "handler",
+                    action = "cachehit",
+                    method = method,
+                    url = url.to_string(),
+                    status = 200u16,
+                    idempotency_key = idempotency_key;
+                    "");
+                return Ok(res.into_response());
+            }
             None => {
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,

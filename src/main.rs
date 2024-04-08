@@ -40,7 +40,7 @@ async fn main() {
     let shutdown = shutdown_signal();
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    log::info!(target: "server", "listening on {}", listener.local_addr().unwrap());
+    log::warn!(target: "server", "listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown)
         .await
@@ -70,5 +70,5 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
 
-    log::info!(target: "server", "signal received, starting graceful shutdown");
+    log::warn!(target: "server", "signal received, starting graceful shutdown");
 }
