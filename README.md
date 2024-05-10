@@ -1,4 +1,5 @@
-# Idempotency Proxy
+# Idempotent Proxy
+Reverse proxy server with build-in idempotency support written in Rust.
 
 ## Overview
 

@@ -13,4 +13,4 @@ RUN ls target/release
 
 FROM scratch AS exporter
 WORKDIR /app
-COPY --from=builder /src/target/release/idempotency-proxy ./
+COPY --from=builder /src/target/release/idempotent-proxy ./

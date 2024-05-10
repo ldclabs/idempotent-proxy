@@ -66,6 +66,6 @@ ENV OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu
 
 WORKDIR /app
 COPY --from=builder /src/.env ./.env
-COPY --from=builder /src/release/idempotency-proxy ./idempotency-proxy
+COPY --from=builder /src/release/idempotent-proxy ./idempotent-proxy
 
-ENTRYPOINT ["./idempotency-proxy"]
+ENTRYPOINT ["./idempotent-proxy"]
