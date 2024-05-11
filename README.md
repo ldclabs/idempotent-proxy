@@ -14,7 +14,7 @@ This service can be used to proxy HTTPS Outcalls for ICP canisters, enabling int
 - [x] JSON response filtering
 - [x] Access control
 - [ ] Headers filtering
-- [ ] HTTPS support
+- [x] HTTPS support
 - [ ] Documentation
 - [ ] Docker image
 - [ ] Examples with ICP canisters
