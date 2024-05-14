@@ -6,17 +6,46 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{engine::general_purpose, Engine};
+use http::{HeaderName, HeaderValue};
 use hyper::{HeaderMap, StatusCode};
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 use reqwest::Client;
 use serde_json::{from_reader, Map, Value};
 use sha3::{Digest, Sha3_256};
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone)]
 pub struct AppState {
     pub http_client: Arc<Client>,
     pub redis_client: Arc<RedisPool>,
+    pub url_vars: HashMap<String, String>,
+    pub header_vars: HashMap<String, HeaderValue>,
+}
+
+const HEADER_PROXY_AUTHORIZATION: HeaderName = HeaderName::from_static("proxy-authorization");
+const HEADER_X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
+const HEADER_X_FORWARDED_HOST: HeaderName = HeaderName::from_static("x-forwarded-host");
+const HEADER_X_FORWARDED_PROTO: HeaderName = HeaderName::from_static("x-forwarded-proto");
+
+impl AppState {
+    pub fn alter_headers(&self, headers: &mut HeaderMap) {
+        headers.remove(http::header::HOST);
+        headers.remove(http::header::FORWARDED);
+        headers.remove(HEADER_PROXY_AUTHORIZATION);
+        headers.remove(HEADER_X_FORWARDED_FOR);
+        headers.remove(HEADER_X_FORWARDED_HOST);
+        headers.remove(HEADER_X_FORWARDED_PROTO);
+
+        if !self.header_vars.is_empty() {
+            for val in headers.values_mut() {
+                if let Ok(s) = val.to_str() {
+                    if let Some(v) = self.header_vars.get(s) {
+                        *val = v.clone();
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub async fn proxy(
@@ -26,10 +55,15 @@ pub async fn proxy(
     let method = req.method().to_string();
     let path = req.uri().path();
     let url = if path.starts_with("/URL_") {
-        let url = std::env::var(path.strip_prefix('/').unwrap()).unwrap_or_default();
+        let url = app
+            .url_vars
+            .get(path.strip_prefix('/').unwrap())
+            .map(|s| s.to_string())
+            .unwrap_or_default();
         if !url.starts_with("http") {
             return Err((StatusCode::BAD_REQUEST, format!("invalid url: {}", url)));
         }
+
         url
     } else {
         let host = extract_header(req.headers(), "x-forwarded-host", || "".to_string());
@@ -59,7 +93,7 @@ pub async fn proxy(
 
     // auth
     if let Ok(pub_key) = std::env::var("TOKEN_PUB_KEY") {
-        let token = extract_header(req.headers(), "authorization", || "".to_string());
+        let token = extract_header(req.headers(), "proxy-authorization", || "".to_string());
         if let Err(err) = verify_token(&pub_key, &token) {
             return Err((StatusCode::UNAUTHORIZED, err));
         }
@@ -111,15 +145,17 @@ pub async fn proxy(
                 }
             })
             .collect::<Vec<_>>();
+        let response_headers = extract_header(req.headers(), "response-headers", || "".to_string())
+            .split(',')
+            .filter_map(|s| match HeaderName::from_bytes(s.trim().as_bytes()) {
+                Ok(v) => Some(v),
+                Err(_) => None,
+            })
+            .collect::<Vec<HeaderName>>();
         let mut headers = req.headers().clone();
-        let mut rreq = reqwest::Request::new(method.clone(), url.clone());
-        headers.remove(http::header::HOST);
-        headers.remove(http::header::FORWARDED);
-        headers.remove(http::header::HeaderName::from_static("authorization"));
-        headers.remove(http::header::HeaderName::from_static("x-forwarded-for"));
-        headers.remove(http::header::HeaderName::from_static("x-forwarded-host"));
-        headers.remove(http::header::HeaderName::from_static("x-forwarded-proto"));
+        app.alter_headers(&mut headers);
 
+        let mut rreq = reqwest::Request::new(method.clone(), url.clone());
         *rreq.headers_mut() = headers;
         *rreq.version_mut() = http::Version::HTTP_11;
 
@@ -144,11 +180,22 @@ pub async fn proxy(
             .to_vec();
 
         if status == StatusCode::OK {
-            let data = if !json_mask.is_empty()
+            let json_filtering = !json_mask.is_empty()
                 && headers
                     .get("content-type")
-                    .is_some_and(|v| v.to_str().is_ok_and(|v| v.contains("application/json")))
-            {
+                    .is_some_and(|v| v.to_str().is_ok_and(|v| v.contains("application/json")));
+
+            let headers = if response_headers.is_empty() {
+                headers
+            } else {
+                headers
+                    .iter()
+                    .filter(|(k, _)| response_headers.contains(k))
+                    .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                    .collect()
+            };
+
+            let data = if json_filtering {
                 let obj: Value = from_reader(&res_body[..])
                     .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
                 let mut new_obj = Map::with_capacity(json_mask.len());

@@ -13,7 +13,7 @@ This service can be used to proxy HTTPS Outcalls for ICP canisters, enabling int
 - [x] Reverse proxy with build-in idempotency support
 - [x] JSON response filtering
 - [x] Access control
-- [ ] Headers filtering
+- [x] Headers filtering
 - [x] HTTPS support
 - [ ] Documentation
 - [ ] Docker image
@@ -31,8 +31,8 @@ Make a request:
 ```bash
 curl -v -X GET 'http://localhost:8080/get' \
   -H 'x-forwarded-host: httpbin.org' \
-  -H 'Idempotency-Key: idempotency_key_001' \
-  -H 'Content-Type: application/json'
+  -H 'idempotency-key: idempotency_key_001' \
+  -H 'content-type: application/json'
 ```
 
 Response:

@@ -1,8 +1,9 @@
 use axum::{routing::post, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use dotenvy::dotenv;
+use http::HeaderValue;
 use reqwest::ClientBuilder;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use structured_logger::{async_json::new_writer, get_env_level, Builder};
 use tokio::signal;
 
@@ -31,12 +32,22 @@ async fn main() {
         .await
         .unwrap();
 
+    let url_vars: HashMap<String, String> = std::env::vars()
+        .filter(|(k, _)| k.starts_with("URL_"))
+        .collect();
+    let header_vars: HashMap<String, HeaderValue> = std::env::vars()
+        .filter(|(k, _)| k.starts_with("HEADER_"))
+        .map(|(k, v)| (k, v.parse().expect("invalid header value")))
+        .collect();
+
     let handle = axum_server::Handle::new();
     let app = Router::new()
         .route("/*any", post(handler::proxy).get(handler::proxy))
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
             redis_client: Arc::new(redis_client),
+            url_vars,
+            header_vars,
         });
 
     let addr: SocketAddr = std::env::var("SERVER_ADDR")
