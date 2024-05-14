@@ -3,12 +3,13 @@ use axum_server::tls_rustls::RustlsConfig;
 use base64::{engine::general_purpose, Engine};
 use dotenvy::dotenv;
 use http::HeaderValue;
-use k256::ecdsa::VerifyingKey;
+use k256::ecdsa;
 use reqwest::ClientBuilder;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use structured_logger::{async_json::new_writer, get_env_level, Builder};
 use tokio::signal;
 
+mod auth;
 mod handler;
 mod redis;
 
@@ -45,17 +46,34 @@ async fn main() {
     let url_vars: HashMap<String, String> = std::env::vars()
         .filter(|(k, _)| k.starts_with("URL_"))
         .collect();
+
     let header_vars: HashMap<String, HeaderValue> = std::env::vars()
         .filter(|(k, _)| k.starts_with("HEADER_"))
         .map(|(k, v)| (k, v.parse().expect("invalid header value")))
         .collect();
-    let ecdsa_pub_keys: Vec<VerifyingKey> = std::env::vars()
+
+    let ecdsa_pub_keys: Vec<ecdsa::VerifyingKey> = std::env::vars()
         .filter(|(k, _)| k.starts_with("ECDSA_PUB_KEY"))
         .map(|(_, v)| {
             let v = general_purpose::URL_SAFE_NO_PAD
                 .decode(v)
                 .expect("invalid base64");
-            VerifyingKey::from_sec1_bytes(&v).expect("invalid ecdsa key")
+            ecdsa::VerifyingKey::from_sec1_bytes(&v).expect("invalid ecdsa key")
+        })
+        .collect();
+
+    let ed25519_pub_keys: Vec<ed25519_dalek::VerifyingKey> = std::env::vars()
+        .filter(|(k, _)| k.starts_with("ED25519_PUB_KEY"))
+        .map(|(_, v)| {
+            let v = general_purpose::URL_SAFE_NO_PAD
+                .decode(v)
+                .expect("invalid base64");
+            if v.len() != 32 {
+                panic!("invalid eddsa key");
+            }
+            let mut key = [0u8; 32];
+            key.copy_from_slice(&v);
+            ed25519_dalek::VerifyingKey::from_bytes(&key).expect("invalid ecdsa key")
         })
         .collect();
 
@@ -68,6 +86,7 @@ async fn main() {
             url_vars: Arc::new(url_vars),
             header_vars: Arc::new(header_vars),
             ecdsa_pub_keys: Arc::new(ecdsa_pub_keys),
+            ed25519_pub_keys: Arc::new(ed25519_pub_keys),
         });
 
     let addr: SocketAddr = std::env::var("SERVER_ADDR")

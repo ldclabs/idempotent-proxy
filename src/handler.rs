@@ -1,4 +1,7 @@
-use crate::redis::{RedisClient, ResponseData};
+use crate::{
+    auth,
+    redis::{RedisClient, ResponseData},
+};
 
 use axum::{
     body::to_bytes,
@@ -8,11 +11,13 @@ use axum::{
 use base64::{engine::general_purpose, Engine};
 use http::{header::AsHeaderName, HeaderName, HeaderValue};
 use hyper::{HeaderMap, StatusCode};
-use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
+use k256::ecdsa;
 use reqwest::Client;
 use serde_json::{from_reader, Map, Value};
 use sha3::{Digest, Sha3_256};
 use std::{collections::HashMap, sync::Arc};
+
+const PERMITTED_DRIFT: u64 = 10; // seconds
 
 #[derive(Clone)]
 pub struct AppState {
@@ -20,7 +25,8 @@ pub struct AppState {
     pub redis_client: Arc<RedisClient>,
     pub url_vars: Arc<HashMap<String, String>>,
     pub header_vars: Arc<HashMap<String, HeaderValue>>,
-    pub ecdsa_pub_keys: Arc<Vec<VerifyingKey>>,
+    pub ecdsa_pub_keys: Arc<Vec<ecdsa::VerifyingKey>>,
+    pub ed25519_pub_keys: Arc<Vec<ed25519_dalek::VerifyingKey>>,
 }
 
 static HEADER_PROXY_AUTHORIZATION: HeaderName = HeaderName::from_static("proxy-authorization");
@@ -51,26 +57,20 @@ impl AppState {
         }
     }
 
-    // TODO: 1. standardize access_token; 2. support ed25519
-    pub fn verify_token(&self, access_token: &str) -> Result<(), String> {
+    pub fn verify_token(&self, access_token: &str) -> Result<auth::Token, String> {
         if !access_token.starts_with("Bearer ") {
             return Err("invalid proxy-authorization header".to_string());
         }
         let token = general_purpose::URL_SAFE_NO_PAD
             .decode(access_token.strip_prefix("Bearer ").unwrap().as_bytes())
             .map_err(|err| err.to_string())?;
-        let token: (Vec<u8>, Vec<u8>) =
-            ciborium::from_reader(token.as_slice()).map_err(|err| err.to_string())?;
-        let digest = sha3_256(&token.0);
-
-        let signature = Signature::try_from(token.1.as_slice()).map_err(|err| err.to_string())?;
-        for pub_key in self.ecdsa_pub_keys.iter() {
-            if pub_key
-                .verify_prehash(digest.as_slice(), &signature)
-                .is_ok()
-            {
-                return Ok(());
-            }
+        if !self.ecdsa_pub_keys.is_empty() {
+            return auth::ecdsa_verify(&self.ecdsa_pub_keys, &token)
+                .map_err(|err| format!("proxy authentication verify failed: {}", err));
+        }
+        if !self.ed25519_pub_keys.is_empty() {
+            return auth::ed25519_verify(&self.ed25519_pub_keys, &token)
+                .map_err(|err| format!("proxy authentication verify failed: {}", err));
         }
 
         Err("proxy authentication verify failed".to_string())
@@ -120,14 +120,22 @@ pub async fn proxy(
         ));
     }
 
-    // auth
-    if !app.ecdsa_pub_keys.is_empty() {
+    // Access control
+    if !app.ecdsa_pub_keys.is_empty() || !app.ed25519_pub_keys.is_empty() {
         let token = extract_header(req.headers(), &HEADER_PROXY_AUTHORIZATION, || {
             "".to_string()
         });
 
-        if let Err(err) = app.verify_token(&token) {
-            return Err((StatusCode::PROXY_AUTHENTICATION_REQUIRED, err));
+        match app.verify_token(&token) {
+            Err(err) => return Err((StatusCode::PROXY_AUTHENTICATION_REQUIRED, err)),
+            Ok(token) => {
+                if token.1 + PERMITTED_DRIFT < chrono::Utc::now().timestamp() as u64 {
+                    return Err((
+                        StatusCode::PROXY_AUTHENTICATION_REQUIRED,
+                        "token expired".to_string(),
+                    ));
+                }
+            }
         }
     }
 
@@ -221,6 +229,7 @@ pub async fn proxy(
             let headers = if response_headers.is_empty() {
                 headers
             } else {
+                // Response headers filtering
                 headers
                     .iter()
                     .filter(|(k, _)| response_headers.contains(k))
@@ -229,6 +238,7 @@ pub async fn proxy(
             };
 
             let data = if json_filtering {
+                // JSON response filtering
                 let obj: Value = from_reader(&res_body[..])
                     .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
                 let mut new_obj = Map::with_capacity(json_mask.len());
