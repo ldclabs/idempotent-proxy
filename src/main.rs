@@ -30,9 +30,17 @@ async fn main() {
         .build()
         .unwrap();
 
-    let redis_client = redis::new(&std::env::var("REDIS_URL").expect("REDIS_URL not found"))
-        .await
-        .unwrap();
+    let redis_client = redis::new(
+        &std::env::var("REDIS_URL").expect("REDIS_URL not found"),
+        std::env::var("REDIS_POLL_INTERVAL")
+            .map(|n| n.parse().unwrap())
+            .unwrap_or(300u64),
+        std::env::var("REDIS_CACHE_TTL")
+            .map(|n| n.parse().unwrap())
+            .unwrap_or(30000u64),
+    )
+    .await
+    .unwrap();
 
     let url_vars: HashMap<String, String> = std::env::vars()
         .filter(|(k, _)| k.starts_with("URL_"))
@@ -57,9 +65,9 @@ async fn main() {
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
             redis_client: Arc::new(redis_client),
-            url_vars,
-            header_vars,
-            ecdsa_pub_keys,
+            url_vars: Arc::new(url_vars),
+            header_vars: Arc::new(header_vars),
+            ecdsa_pub_keys: Arc::new(ecdsa_pub_keys),
         });
 
     let addr: SocketAddr = std::env::var("SERVER_ADDR")

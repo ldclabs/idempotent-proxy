@@ -16,11 +16,19 @@ use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use tokio::time::{sleep, Duration};
 
-pub type RedisPool = Pool<PooledClientManager>;
+pub struct RedisClient {
+    pool: Pool<PooledClientManager>,
+    poll_interval: u64,
+    cache_ttl: u64,
+}
 
-pub async fn new(cfg: &str) -> Result<RedisPool, rustis::Error> {
-    let manager = PooledClientManager::new(cfg).unwrap();
-    RedisPool::builder()
+pub async fn new(
+    url: &str,
+    poll_interval: u64,
+    cache_ttl: u64,
+) -> Result<RedisClient, rustis::Error> {
+    let manager = PooledClientManager::new(url).unwrap();
+    let pool = Pool::builder()
         .max_size(10)
         .min_idle(Some(1))
         .max_lifetime(None)
@@ -29,7 +37,12 @@ pub async fn new(cfg: &str) -> Result<RedisPool, rustis::Error> {
         .error_sink(Box::new(RedisMonitor {}))
         .connection_customizer(Box::new(RedisMonitor {}))
         .build(manager)
-        .await
+        .await?;
+    Ok(RedisClient {
+        pool,
+        poll_interval,
+        cache_ttl,
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -60,8 +73,8 @@ pub struct ResponseData {
 }
 
 impl ResponseData {
-    pub async fn try_get(pool: &RedisPool, key: &str) -> anyhow::Result<Option<Self>> {
-        let conn = pool.get().await?;
+    pub async fn try_get(cli: &RedisClient, key: &str) -> anyhow::Result<Option<Self>> {
+        let conn = cli.pool.get().await?;
         let mut counter = 30;
         while counter > 0 {
             let res: Option<BulkString> = conn.get(key).await?;
@@ -76,34 +89,34 @@ impl ResponseData {
             }
 
             counter -= 1;
-            sleep(Duration::from_secs(1)).await;
+            sleep(Duration::from_millis(cli.poll_interval)).await;
         }
 
         Err(anyhow::anyhow!("get cache timeout"))
     }
 
-    pub async fn lock_for_set(pool: &RedisPool, key: &str) -> anyhow::Result<bool> {
-        let conn = pool.get().await?;
+    pub async fn lock_for_set(cli: &RedisClient, key: &str) -> anyhow::Result<bool> {
+        let conn = cli.pool.get().await?;
         let res = conn
             .set_with_options(
                 key,
                 BulkString::from(vec![0]),
                 SetCondition::NX,
-                SetExpiration::Ex(60),
+                SetExpiration::Px(cli.cache_ttl),
                 false,
             )
             .await?;
         Ok(res)
     }
 
-    pub async fn clear(pool: &RedisPool, key: &str) -> anyhow::Result<()> {
-        let conn = pool.get().await?;
+    pub async fn clear(cli: &RedisClient, key: &str) -> anyhow::Result<()> {
+        let conn = cli.pool.get().await?;
         let _ = conn.del(key).await?;
         Ok(())
     }
 
-    pub async fn set(pool: &RedisPool, key: &str, data: &Self) -> anyhow::Result<bool> {
-        let conn = pool.get().await?;
+    pub async fn set(cli: &RedisClient, key: &str, data: &Self) -> anyhow::Result<bool> {
+        let conn = cli.pool.get().await?;
         let mut buf = Vec::new();
         into_writer(data, &mut buf)?;
         let res = conn
@@ -111,7 +124,7 @@ impl ResponseData {
                 key,
                 BulkString::from(buf),
                 SetCondition::XX,
-                SetExpiration::Ex(60),
+                SetExpiration::Px(cli.cache_ttl),
                 false,
             )
             .await?;

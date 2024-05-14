@@ -1,4 +1,4 @@
-use crate::redis::{RedisPool, ResponseData};
+use crate::redis::{RedisClient, ResponseData};
 
 use axum::{
     body::to_bytes,
@@ -17,10 +17,10 @@ use std::{collections::HashMap, sync::Arc};
 #[derive(Clone)]
 pub struct AppState {
     pub http_client: Arc<Client>,
-    pub redis_client: Arc<RedisPool>,
-    pub url_vars: HashMap<String, String>,
-    pub header_vars: HashMap<String, HeaderValue>,
-    pub ecdsa_pub_keys: Vec<VerifyingKey>,
+    pub redis_client: Arc<RedisClient>,
+    pub url_vars: Arc<HashMap<String, String>>,
+    pub header_vars: Arc<HashMap<String, HeaderValue>>,
+    pub ecdsa_pub_keys: Arc<Vec<VerifyingKey>>,
 }
 
 static HEADER_PROXY_AUTHORIZATION: HeaderName = HeaderName::from_static("proxy-authorization");
@@ -64,7 +64,7 @@ impl AppState {
         let digest = sha3_256(&token.0);
 
         let signature = Signature::try_from(token.1.as_slice()).map_err(|err| err.to_string())?;
-        for pub_key in &self.ecdsa_pub_keys {
+        for pub_key in self.ecdsa_pub_keys.iter() {
             if pub_key
                 .verify_prehash(digest.as_slice(), &signature)
                 .is_ok()
