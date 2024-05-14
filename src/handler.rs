@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use base64::{engine::general_purpose, Engine};
-use http::{HeaderName, HeaderValue};
+use http::{header::AsHeaderName, HeaderName, HeaderValue};
 use hyper::{HeaderMap, StatusCode};
 use k256::ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey};
 use reqwest::Client;
@@ -20,21 +20,25 @@ pub struct AppState {
     pub redis_client: Arc<RedisPool>,
     pub url_vars: HashMap<String, String>,
     pub header_vars: HashMap<String, HeaderValue>,
+    pub ecdsa_pub_keys: Vec<VerifyingKey>,
 }
 
-const HEADER_PROXY_AUTHORIZATION: HeaderName = HeaderName::from_static("proxy-authorization");
-const HEADER_X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
-const HEADER_X_FORWARDED_HOST: HeaderName = HeaderName::from_static("x-forwarded-host");
-const HEADER_X_FORWARDED_PROTO: HeaderName = HeaderName::from_static("x-forwarded-proto");
+static HEADER_PROXY_AUTHORIZATION: HeaderName = HeaderName::from_static("proxy-authorization");
+static HEADER_X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");
+static HEADER_X_FORWARDED_HOST: HeaderName = HeaderName::from_static("x-forwarded-host");
+static HEADER_X_FORWARDED_PROTO: HeaderName = HeaderName::from_static("x-forwarded-proto");
+static HEADER_IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
+static HEADER_X_JSON_MASK: HeaderName = HeaderName::from_static("x-json-mask");
+static HEADER_RESPONSE_HEADERS: HeaderName = HeaderName::from_static("response-headers");
 
 impl AppState {
     pub fn alter_headers(&self, headers: &mut HeaderMap) {
-        headers.remove(http::header::HOST);
-        headers.remove(http::header::FORWARDED);
-        headers.remove(HEADER_PROXY_AUTHORIZATION);
-        headers.remove(HEADER_X_FORWARDED_FOR);
-        headers.remove(HEADER_X_FORWARDED_HOST);
-        headers.remove(HEADER_X_FORWARDED_PROTO);
+        headers.remove(&http::header::HOST);
+        headers.remove(&http::header::FORWARDED);
+        headers.remove(&HEADER_PROXY_AUTHORIZATION);
+        headers.remove(&HEADER_X_FORWARDED_FOR);
+        headers.remove(&HEADER_X_FORWARDED_HOST);
+        headers.remove(&HEADER_X_FORWARDED_PROTO);
 
         if !self.header_vars.is_empty() {
             for val in headers.values_mut() {
@@ -45,6 +49,31 @@ impl AppState {
                 }
             }
         }
+    }
+
+    // TODO: 1. standardize access_token; 2. support ed25519
+    pub fn verify_token(&self, access_token: &str) -> Result<(), String> {
+        if !access_token.starts_with("Bearer ") {
+            return Err("invalid proxy-authorization header".to_string());
+        }
+        let token = general_purpose::URL_SAFE_NO_PAD
+            .decode(access_token.strip_prefix("Bearer ").unwrap().as_bytes())
+            .map_err(|err| err.to_string())?;
+        let token: (Vec<u8>, Vec<u8>) =
+            ciborium::from_reader(token.as_slice()).map_err(|err| err.to_string())?;
+        let digest = sha3_256(&token.0);
+
+        let signature = Signature::try_from(token.1.as_slice()).map_err(|err| err.to_string())?;
+        for pub_key in &self.ecdsa_pub_keys {
+            if pub_key
+                .verify_prehash(digest.as_slice(), &signature)
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+
+        Err("proxy authentication verify failed".to_string())
     }
 }
 
@@ -66,7 +95,7 @@ pub async fn proxy(
 
         url
     } else {
-        let host = extract_header(req.headers(), "x-forwarded-host", || "".to_string());
+        let host = extract_header(req.headers(), &HEADER_X_FORWARDED_HOST, || "".to_string());
         if host.is_empty() {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -83,7 +112,7 @@ pub async fn proxy(
 
     let url =
         reqwest::Url::parse(&url).map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
-    let idempotency_key = extract_header(req.headers(), "idempotency-key", || "".to_string());
+    let idempotency_key = extract_header(req.headers(), &HEADER_IDEMPOTENCY_KEY, || "".to_string());
     if idempotency_key.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -92,10 +121,13 @@ pub async fn proxy(
     }
 
     // auth
-    if let Ok(pub_key) = std::env::var("TOKEN_PUB_KEY") {
-        let token = extract_header(req.headers(), "proxy-authorization", || "".to_string());
-        if let Err(err) = verify_token(&pub_key, &token) {
-            return Err((StatusCode::UNAUTHORIZED, err));
+    if !app.ecdsa_pub_keys.is_empty() {
+        let token = extract_header(req.headers(), &HEADER_PROXY_AUTHORIZATION, || {
+            "".to_string()
+        });
+
+        if let Err(err) = app.verify_token(&token) {
+            return Err((StatusCode::PROXY_AUTHENTICATION_REQUIRED, err));
         }
     }
 
@@ -134,7 +166,7 @@ pub async fn proxy(
 
     let res = {
         let method = req.method();
-        let json_mask = extract_header(req.headers(), "x-json-mask", || "".to_string())
+        let json_mask = extract_header(req.headers(), &HEADER_X_JSON_MASK, || "".to_string())
             .split(',')
             .filter_map(|s| {
                 let s = s.trim();
@@ -145,13 +177,14 @@ pub async fn proxy(
                 }
             })
             .collect::<Vec<_>>();
-        let response_headers = extract_header(req.headers(), "response-headers", || "".to_string())
-            .split(',')
-            .filter_map(|s| match HeaderName::from_bytes(s.trim().as_bytes()) {
-                Ok(v) => Some(v),
-                Err(_) => None,
-            })
-            .collect::<Vec<HeaderName>>();
+        let response_headers =
+            extract_header(req.headers(), &HEADER_RESPONSE_HEADERS, || "".to_string())
+                .split(',')
+                .filter_map(|s| match HeaderName::from_bytes(s.trim().as_bytes()) {
+                    Ok(v) => Some(v),
+                    Err(_) => None,
+                })
+                .collect::<Vec<HeaderName>>();
         let mut headers = req.headers().clone();
         app.alter_headers(&mut headers);
 
@@ -255,7 +288,10 @@ pub async fn proxy(
     }
 }
 
-pub fn extract_header(hm: &HeaderMap, key: &str, or: impl FnOnce() -> String) -> String {
+pub fn extract_header<K>(hm: &HeaderMap, key: K, or: impl FnOnce() -> String) -> String
+where
+    K: AsHeaderName,
+{
     match hm.get(key) {
         None => or(),
         Some(v) => match v.to_str() {
@@ -271,41 +307,9 @@ pub fn sha3_256(data: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-fn verify_token(pub_key: &str, access_token: &str) -> Result<(), String> {
-    let pub_key = general_purpose::URL_SAFE_NO_PAD
-        .decode(pub_key.as_bytes())
-        .map_err(|err| err.to_string())?;
-    if !access_token.starts_with("Bearer ") {
-        return Err("missing Bearer token".to_string());
-    }
-    let token = general_purpose::URL_SAFE_NO_PAD
-        .decode(access_token.strip_prefix("Bearer ").unwrap().as_bytes())
-        .map_err(|err| err.to_string())?;
-    let token: (Vec<u8>, Vec<u8>) =
-        ciborium::from_reader(token.as_slice()).map_err(|err| err.to_string())?;
-    let digest = sha3_256(&token.0);
-
-    let signature = Signature::try_from(token.1.as_slice()).map_err(|err| err.to_string())?;
-    let pub_key = VerifyingKey::from_sec1_bytes(&pub_key).map_err(|err| err.to_string())?;
-    if pub_key
-        .verify_prehash(digest.as_slice(), &signature)
-        .is_err()
-    {
-        return Err("access_token verify failed".to_string());
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod test {
-    use super::*;
 
     #[test]
-    fn test_challenge() {
-        let res = verify_token(
-            "A6t1U8kc10AbLJ3-V1avU4rYvmAsYjXuzY0kPublttot",
-            "Bearer gooAAAAA...HMY6w",
-        );
-        println!("{:?}", res);
-    }
+    fn test_challenge() {}
 }

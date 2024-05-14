@@ -1,7 +1,9 @@
 use axum::{routing::post, Router};
 use axum_server::tls_rustls::RustlsConfig;
+use base64::{engine::general_purpose, Engine};
 use dotenvy::dotenv;
 use http::HeaderValue;
+use k256::ecdsa::VerifyingKey;
 use reqwest::ClientBuilder;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use structured_logger::{async_json::new_writer, get_env_level, Builder};
@@ -39,6 +41,15 @@ async fn main() {
         .filter(|(k, _)| k.starts_with("HEADER_"))
         .map(|(k, v)| (k, v.parse().expect("invalid header value")))
         .collect();
+    let ecdsa_pub_keys: Vec<VerifyingKey> = std::env::vars()
+        .filter(|(k, _)| k.starts_with("ECDSA_PUB_KEY"))
+        .map(|(_, v)| {
+            let v = general_purpose::URL_SAFE_NO_PAD
+                .decode(v)
+                .expect("invalid base64");
+            VerifyingKey::from_sec1_bytes(&v).expect("invalid ecdsa key")
+        })
+        .collect();
 
     let handle = axum_server::Handle::new();
     let app = Router::new()
@@ -48,6 +59,7 @@ async fn main() {
             redis_client: Arc::new(redis_client),
             url_vars,
             header_vars,
+            ecdsa_pub_keys,
         });
 
     let addr: SocketAddr = std::env::var("SERVER_ADDR")
