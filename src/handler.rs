@@ -17,8 +17,6 @@ use serde_json::{from_reader, Map, Value};
 use sha3::{Digest, Sha3_256};
 use std::{collections::HashMap, sync::Arc};
 
-const PERMITTED_DRIFT: u64 = 10; // seconds
-
 #[derive(Clone)]
 pub struct AppState {
     pub http_client: Arc<Client>,
@@ -57,7 +55,8 @@ impl AppState {
         }
     }
 
-    pub fn verify_token(&self, access_token: &str) -> Result<auth::Token, String> {
+    // TODO: support JWT and CWT
+    pub fn verify_token(&self, access_token: &str) -> Result<String, String> {
         if !access_token.starts_with("Bearer ") {
             return Err("invalid proxy-authorization header".to_string());
         }
@@ -66,10 +65,12 @@ impl AppState {
             .map_err(|err| err.to_string())?;
         if !self.ecdsa_pub_keys.is_empty() {
             return auth::ecdsa_verify(&self.ecdsa_pub_keys, &token)
+                .map(|t| t.1)
                 .map_err(|err| format!("proxy authentication verify failed: {}", err));
         }
         if !self.ed25519_pub_keys.is_empty() {
             return auth::ed25519_verify(&self.ed25519_pub_keys, &token)
+                .map(|t| t.1)
                 .map_err(|err| format!("proxy authentication verify failed: {}", err));
         }
 
@@ -121,23 +122,18 @@ pub async fn proxy(
     }
 
     // Access control
-    if !app.ecdsa_pub_keys.is_empty() || !app.ed25519_pub_keys.is_empty() {
+    let subject = if !app.ecdsa_pub_keys.is_empty() || !app.ed25519_pub_keys.is_empty() {
         let token = extract_header(req.headers(), &HEADER_PROXY_AUTHORIZATION, || {
             "".to_string()
         });
 
         match app.verify_token(&token) {
             Err(err) => return Err((StatusCode::PROXY_AUTHENTICATION_REQUIRED, err)),
-            Ok(token) => {
-                if token.1 + PERMITTED_DRIFT < chrono::Utc::now().timestamp() as u64 {
-                    return Err((
-                        StatusCode::PROXY_AUTHENTICATION_REQUIRED,
-                        "token expired".to_string(),
-                    ));
-                }
-            }
+            Ok(subject) => subject,
         }
-    }
+    } else {
+        "".to_string()
+    };
 
     let idempotency_key = format!("{}:{}", method, idempotency_key);
 
@@ -159,6 +155,7 @@ pub async fn proxy(
                     method = method,
                     url = url.to_string(),
                     status = 200u16,
+                    subject = subject,
                     idempotency_key = idempotency_key;
                     "");
                 return Ok(res.into_response());
@@ -280,6 +277,7 @@ pub async fn proxy(
                 method = method,
                 url = url.to_string(),
                 status = 200u16,
+                subject = subject,
                 idempotency_key = idempotency_key;
                 "");
             Ok(res)
@@ -291,6 +289,7 @@ pub async fn proxy(
                 method = method,
                 url = url.to_string(),
                 status = status.as_u16(),
+                subject = subject,
                 idempotency_key = idempotency_key;
                 "{}", msg);
             Err((status, msg))
