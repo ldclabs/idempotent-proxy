@@ -14,7 +14,6 @@ use hyper::{HeaderMap, StatusCode};
 use k256::ecdsa;
 use reqwest::Client;
 use serde_json::{from_reader, Map, Value};
-use sha3::{Digest, Sha3_256};
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Clone)]
@@ -223,7 +222,7 @@ pub async fn proxy(
                     .get("content-type")
                     .is_some_and(|v| v.to_str().is_ok_and(|v| v.contains("application/json")));
 
-            let headers = if response_headers.is_empty() {
+            let mut headers = if response_headers.is_empty() {
                 headers
             } else {
                 // Response headers filtering
@@ -246,6 +245,7 @@ pub async fn proxy(
                 }
                 let res_body = serde_json::to_vec(&new_obj)
                     .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+                headers.insert(http::header::CONTENT_LENGTH, res_body.len().into());
                 ResponseData::from_response(&headers, &res_body)
             } else {
                 ResponseData::from_response(&headers, &res_body)
@@ -308,12 +308,6 @@ where
             Err(_) => or(),
         },
     }
-}
-
-pub fn sha3_256(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha3_256::new();
-    hasher.update(data);
-    hasher.finalize().into()
 }
 
 #[cfg(test)]
