@@ -1,8 +1,3 @@
-use crate::{
-    auth,
-    redis::{RedisClient, ResponseData},
-};
-
 use axum::{
     body::to_bytes,
     extract::{Request, State},
@@ -16,10 +11,14 @@ use reqwest::Client;
 use serde_json::{from_reader, Map, Value};
 use std::{collections::HashMap, sync::Arc};
 
+use crate::redis::RedisClient;
+use idempotent_proxy_types::auth;
+use idempotent_proxy_types::cache::{Cacher, ResponseData};
+
 #[derive(Clone)]
 pub struct AppState {
     pub http_client: Arc<Client>,
-    pub redis_client: Arc<RedisClient>,
+    pub cacher: Arc<RedisClient>,
     pub url_vars: Arc<HashMap<String, String>>,
     pub header_vars: Arc<HashMap<String, HeaderValue>>,
     pub ecdsa_pub_keys: Arc<Vec<ecdsa::VerifyingKey>>,
@@ -136,11 +135,15 @@ pub async fn proxy(
 
     let idempotency_key = format!("{}:{}", method, idempotency_key);
 
-    let lock = ResponseData::lock_for_set(&app.redis_client, &idempotency_key)
+    let lock = app
+        .cacher
+        .obtain(&idempotency_key, app.cacher.cache_ttl)
         .await
         .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
     if !lock {
-        match ResponseData::try_get(&app.redis_client, &idempotency_key)
+        match app
+            .cacher
+            .polling_get(&idempotency_key, app.cacher.poll_interval)
             .await
             .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
         {
@@ -170,25 +173,10 @@ pub async fn proxy(
 
     let res = {
         let method = req.method();
-        let json_mask = extract_header(req.headers(), &HEADER_X_JSON_MASK, || "".to_string())
-            .split(',')
-            .filter_map(|s| {
-                let s = s.trim();
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s.to_string())
-                }
-            })
-            .collect::<Vec<_>>();
+        let json_mask = extract_header(req.headers(), &HEADER_X_JSON_MASK, || "".to_string());
         let response_headers =
-            extract_header(req.headers(), &HEADER_RESPONSE_HEADERS, || "".to_string())
-                .split(',')
-                .filter_map(|s| match HeaderName::from_bytes(s.trim().as_bytes()) {
-                    Ok(v) => Some(v),
-                    Err(_) => None,
-                })
-                .collect::<Vec<HeaderName>>();
+            extract_header(req.headers(), &HEADER_RESPONSE_HEADERS, || "".to_string());
+
         let mut headers = req.headers().clone();
         app.alter_headers(&mut headers);
 
@@ -213,45 +201,17 @@ pub async fn proxy(
         let res_body = rres
             .bytes()
             .await
-            .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
-            .to_vec();
+            .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
         if status == StatusCode::OK {
-            let json_filtering = !json_mask.is_empty()
-                && headers
-                    .get("content-type")
-                    .is_some_and(|v| v.to_str().is_ok_and(|v| v.contains("application/json")));
+            let mut data = ResponseData::default();
+            data.with_headers(&headers, &response_headers);
+            data.with_body(&res_body, &json_mask)
+                .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
-            let mut headers = if response_headers.is_empty() {
-                headers
-            } else {
-                // Response headers filtering
-                headers
-                    .iter()
-                    .filter(|(k, _)| response_headers.contains(k))
-                    .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                    .collect()
-            };
-
-            let data = if json_filtering {
-                // JSON response filtering
-                let obj: Value = from_reader(&res_body[..])
-                    .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
-                let mut new_obj = Map::with_capacity(json_mask.len());
-                for k in json_mask {
-                    if let Some(v) = obj.get(&k) {
-                        new_obj.insert(k, v.clone());
-                    }
-                }
-                let res_body = serde_json::to_vec(&new_obj)
-                    .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
-                headers.insert(http::header::CONTENT_LENGTH, res_body.len().into());
-                ResponseData::from_response(&headers, &res_body)
-            } else {
-                ResponseData::from_response(&headers, &res_body)
-            };
-
-            let _ = ResponseData::set(&app.redis_client, &idempotency_key, &data)
+            let _ = app
+                .cacher
+                .set(&idempotency_key, &data, app.cacher.cache_ttl)
                 .await
                 .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
 
@@ -283,7 +243,7 @@ pub async fn proxy(
             Ok(res)
         }
         Err((status, msg)) => {
-            let _ = ResponseData::clear(&app.redis_client, &idempotency_key).await;
+            let _ = app.cacher.del(&idempotency_key).await;
             log::warn!(target: "handler",
                 action = "proxying",
                 method = method,
