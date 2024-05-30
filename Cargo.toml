@@ -1,5 +1,9 @@
 [workspace]
-members = ["src/idempotent-proxy-server", "src/idempotent-proxy-types"]
+members = [
+  "src/idempotent-proxy-server",
+  "src/idempotent-proxy-types",
+  "src/idempotent-proxy-worker",
+]
 resolver = "2"
 
 [workspace.package]
