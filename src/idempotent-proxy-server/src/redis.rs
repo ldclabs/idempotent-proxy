@@ -1,25 +1,17 @@
 use async_trait::async_trait;
-use axum::{
-    body::Body,
-    response::{IntoResponse, Response},
-};
 use ciborium::{from_reader, into_writer};
-use http::{
-    header::{HeaderMap, HeaderName, HeaderValue},
-    StatusCode,
-};
 use rustis::bb8::{CustomizeConnection, ErrorSink, Pool};
 use rustis::client::PooledClientManager;
 use rustis::commands::{GenericCommands, SetCondition, SetExpiration, StringCommands};
 use rustis::resp::BulkString;
-use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
 use tokio::time::{sleep, Duration};
+
+use idempotent_proxy_types::cache::{Cacher, ResponseData};
 
 pub struct RedisClient {
     pool: Pool<PooledClientManager>,
-    poll_interval: u64,
-    cache_ttl: u64,
+    pub poll_interval: u64,
+    pub cache_ttl: u64,
 }
 
 pub async fn new(
@@ -66,15 +58,28 @@ impl<C: Send + 'static, E: 'static> CustomizeConnection<C, E> for RedisMonitor {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ResponseData {
-    pub headers: Vec<(String, ByteBuf)>,
-    pub body: ByteBuf,
-}
+#[async_trait]
+impl Cacher<ResponseData> for RedisClient {
+    async fn obtain(&self, key: &str, ttl: u64) -> anyhow::Result<bool> {
+        let conn = self.pool.get().await?;
+        let res = conn
+            .set_with_options(
+                key,
+                BulkString::from(vec![0]),
+                SetCondition::NX,
+                SetExpiration::Px(ttl),
+                false,
+            )
+            .await?;
+        Ok(res)
+    }
 
-impl ResponseData {
-    pub async fn try_get(cli: &RedisClient, key: &str) -> anyhow::Result<Option<Self>> {
-        let conn = cli.pool.get().await?;
+    async fn polling_get(
+        &self,
+        key: &str,
+        poll_interval: u64,
+    ) -> anyhow::Result<Option<ResponseData>> {
+        let conn = self.pool.get().await?;
         let mut counter = 30;
         while counter > 0 {
             let res: Option<BulkString> = conn.get(key).await?;
@@ -89,71 +94,31 @@ impl ResponseData {
             }
 
             counter -= 1;
-            sleep(Duration::from_millis(cli.poll_interval)).await;
+            sleep(Duration::from_millis(poll_interval)).await;
         }
 
         Err(anyhow::anyhow!("get cache timeout"))
     }
 
-    pub async fn lock_for_set(cli: &RedisClient, key: &str) -> anyhow::Result<bool> {
-        let conn = cli.pool.get().await?;
-        let res = conn
-            .set_with_options(
-                key,
-                BulkString::from(vec![0]),
-                SetCondition::NX,
-                SetExpiration::Px(cli.cache_ttl),
-                false,
-            )
-            .await?;
-        Ok(res)
-    }
-
-    pub async fn clear(cli: &RedisClient, key: &str) -> anyhow::Result<()> {
-        let conn = cli.pool.get().await?;
-        let _ = conn.del(key).await?;
-        Ok(())
-    }
-
-    pub async fn set(cli: &RedisClient, key: &str, data: &Self) -> anyhow::Result<bool> {
-        let conn = cli.pool.get().await?;
+    async fn set(&self, key: &str, val: &ResponseData, ttl: u64) -> anyhow::Result<bool> {
+        let conn = self.pool.get().await?;
         let mut buf = Vec::new();
-        into_writer(data, &mut buf)?;
+        into_writer(val, &mut buf)?;
         let res = conn
             .set_with_options(
                 key,
                 BulkString::from(buf),
                 SetCondition::XX,
-                SetExpiration::Px(cli.cache_ttl),
+                SetExpiration::Px(ttl),
                 false,
             )
             .await?;
         Ok(res)
     }
 
-    pub fn from_response(headers: &HeaderMap, body: &[u8]) -> Self {
-        let mut h = Vec::new();
-        for (k, v) in headers.iter() {
-            h.push((k.as_str().to_string(), ByteBuf::from(v.as_bytes().to_vec())));
-        }
-        Self {
-            headers: h,
-            body: ByteBuf::from(body.to_vec()),
-        }
-    }
-}
-
-impl IntoResponse for ResponseData {
-    fn into_response(self) -> Response {
-        let mut res = Response::new(Body::from(self.body.into_vec()));
-        *res.status_mut() = StatusCode::OK;
-        *res.version_mut() = http::Version::HTTP_11;
-        for (ref k, v) in self.headers {
-            res.headers_mut().append(
-                HeaderName::from_bytes(k.as_bytes()).unwrap(),
-                HeaderValue::from_bytes(v.as_slice()).unwrap(),
-            );
-        }
-        res
+    async fn del(&self, key: &str) -> anyhow::Result<()> {
+        let conn = self.pool.get().await?;
+        let _ = conn.del(key).await?;
+        Ok(())
     }
 }

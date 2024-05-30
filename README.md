@@ -28,7 +28,7 @@ If you plan to use this project and have any questions, feel free to open an iss
 Run proxy:
 ```bash
 docker run --name redis -d -p 6379:6379 redis:latest
-cargo run
+cargo run -p idempotent-proxy-server
 ```
 
 ### Regular Proxy Request Example

@@ -9,9 +9,11 @@ use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use structured_logger::{async_json::new_writer, get_env_level, Builder};
 use tokio::signal;
 
-mod auth;
 mod handler;
 mod redis;
+
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
 async fn main() {
@@ -82,7 +84,7 @@ async fn main() {
         .route("/*any", post(handler::proxy).get(handler::proxy))
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
-            redis_client: Arc::new(redis_client),
+            cacher: Arc::new(redis_client),
             url_vars: Arc::new(url_vars),
             header_vars: Arc::new(header_vars),
             ecdsa_pub_keys: Arc::new(ecdsa_pub_keys),
@@ -99,7 +101,7 @@ async fn main() {
     match key_file.is_empty() {
         true => {
             let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-            log::warn!(target: "server", "listening on {:?}", addr);
+            log::warn!(target: "server", "{}@{} listening on {:?}", APP_NAME, APP_VERSION, addr);
             axum::serve(listener, app)
                 .with_graceful_shutdown(shutdown_signal(handle))
                 .await
@@ -109,7 +111,7 @@ async fn main() {
             let config = RustlsConfig::from_pem_file(&cert_file, &key_file)
                 .await
                 .unwrap_or_else(|_| panic!("read tls file failed: {}, {}", cert_file, key_file));
-            log::warn!(target: "server", "listening on {:?} with tls", addr);
+            log::warn!(target: "server", "{}@{} listening on {:?} with tls", APP_NAME, APP_VERSION,addr);
             axum_server::bind_rustls(addr, config)
                 .handle(handle)
                 .serve(app.into_make_service())
