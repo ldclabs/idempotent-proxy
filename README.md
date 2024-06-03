@@ -13,7 +13,7 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 
 If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
 
-## running as Cloudflare Worker
+## Running as Cloudflare Worker
 
 Idempotent Proxy can be running as a Cloudflare Worker. See the [idempotent-proxy-cf-worker](./src/idempotent-proxy-cf-worker) directory for more information.
 

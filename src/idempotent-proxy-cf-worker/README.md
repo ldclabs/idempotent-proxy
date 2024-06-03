@@ -21,6 +21,6 @@ npm i
 npm run dev
 ```
 
-### Regular Proxy Request Example
+## Proxy Request Example
 
 See: https://github.com/ldclabs/idempotent-proxy
