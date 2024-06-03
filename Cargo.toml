@@ -10,7 +10,7 @@ resolver = "2"
 version = "0.3.0"
 edition = "2021"
 repository = "https://github.com/ldclabs/idempotent-proxy"
-keywords = ["idempotent", "reverse proxy", "icp"]
+keywords = ["idempotent", "reverse", "proxy", "icp"]
 categories = ["proxy"]
 license = "MIT OR Apache-2.0"
 

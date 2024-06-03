@@ -1,0 +1,24 @@
+name = "idempotent-proxy-cf-worker"
+main = "./src/index.ts"
+compatibility_date = "2024-04-03"
+
+[dev]
+port = 8080
+
+# Variable bindings. These are arbitrary, plaintext strings (similar to environment variables)
+# Note: Use secrets to store sensitive data.
+# Docs: https://developers.cloudflare.com/workers/platform/environment-variables
+[vars]
+POLL_INTERVAL = 100 # in milliseconds
+CACHE_TTL = 10000   # in milliseconds
+
+# Bind a Durable Object. Durable objects are a scale-to-zero compute primitive based on the actor model.
+# Durable Objects can live for as long as needed. Use these when you need a long-running "server", such as in realtime apps.
+# Docs: https://developers.cloudflare.com/workers/runtime-apis/durable-objects
+[[durable_objects.bindings]]
+name = "CACHER"
+class_name = "Cacher"
+
+[[migrations]]
+tag = "v1"               # Should be unique for each entry
+new_classes = ["Cacher"]
