@@ -9,8 +9,8 @@ port = 8080
 # Note: Use secrets to store sensitive data.
 # Docs: https://developers.cloudflare.com/workers/platform/environment-variables
 [vars]
-POLL_INTERVAL = 100 # in milliseconds
-CACHE_TTL = 10000   # in milliseconds
+POLL_INTERVAL = 100     # in milliseconds
+REQUEST_TIMEOUT = 10000 # in milliseconds
 
 # Bind a Durable Object. Durable objects are a scale-to-zero compute primitive based on the actor model.
 # Durable Objects can live for as long as needed. Use these when you need a long-running "server", such as in realtime apps.

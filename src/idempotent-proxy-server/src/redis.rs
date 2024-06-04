@@ -1,12 +1,11 @@
 use async_trait::async_trait;
-use ciborium::{from_reader, into_writer};
 use rustis::bb8::{CustomizeConnection, ErrorSink, Pool};
 use rustis::client::PooledClientManager;
 use rustis::commands::{GenericCommands, SetCondition, SetExpiration, StringCommands};
 use rustis::resp::BulkString;
 use tokio::time::{sleep, Duration};
 
-use idempotent_proxy_types::cache::{Cacher, ResponseData};
+use idempotent_proxy_types::{cache::Cacher, err_string};
 
 pub struct RedisClient {
     pool: Pool<PooledClientManager>,
@@ -59,9 +58,9 @@ impl<C: Send + 'static, E: 'static> CustomizeConnection<C, E> for RedisMonitor {
 }
 
 #[async_trait]
-impl Cacher<ResponseData> for RedisClient {
-    async fn obtain(&self, key: &str, ttl: u64) -> anyhow::Result<bool> {
-        let conn = self.pool.get().await?;
+impl Cacher for RedisClient {
+    async fn obtain(&self, key: &str, ttl: u64) -> Result<bool, String> {
+        let conn = self.pool.get().await.map_err(err_string)?;
         let res = conn
             .set_with_options(
                 key,
@@ -70,7 +69,8 @@ impl Cacher<ResponseData> for RedisClient {
                 SetExpiration::Px(ttl),
                 false,
             )
-            .await?;
+            .await
+            .map_err(err_string)?;
         Ok(res)
     }
 
@@ -78,17 +78,17 @@ impl Cacher<ResponseData> for RedisClient {
         &self,
         key: &str,
         poll_interval: u64,
-    ) -> anyhow::Result<Option<ResponseData>> {
-        let conn = self.pool.get().await?;
-        let mut counter = 30;
+        counter: u64,
+    ) -> Result<Vec<u8>, String> {
+        let conn = self.pool.get().await.map_err(err_string)?;
+        let mut counter = counter;
         while counter > 0 {
-            let res: Option<BulkString> = conn.get(key).await?;
+            let res: Option<BulkString> = conn.get(key).await.map_err(err_string)?;
             match res {
-                None => return Ok(None),
+                None => return Err("not obtained".to_string()),
                 Some(bs) => {
                     if bs.len() > 1 {
-                        let data: ResponseData = from_reader(bs.as_bytes())?;
-                        return Ok(Some(data));
+                        return Ok(bs.into());
                     }
                 }
             }
@@ -97,28 +97,27 @@ impl Cacher<ResponseData> for RedisClient {
             sleep(Duration::from_millis(poll_interval)).await;
         }
 
-        Err(anyhow::anyhow!("get cache timeout"))
+        Err(("polling get cache timeout").to_string())
     }
 
-    async fn set(&self, key: &str, val: &ResponseData, ttl: u64) -> anyhow::Result<bool> {
-        let conn = self.pool.get().await?;
-        let mut buf = Vec::new();
-        into_writer(val, &mut buf)?;
+    async fn set(&self, key: &str, val: Vec<u8>, ttl: u64) -> Result<bool, String> {
+        let conn = self.pool.get().await.map_err(err_string)?;
         let res = conn
             .set_with_options(
                 key,
-                BulkString::from(buf),
+                BulkString::from(val),
                 SetCondition::XX,
                 SetExpiration::Px(ttl),
                 false,
             )
-            .await?;
+            .await
+            .map_err(err_string)?;
         Ok(res)
     }
 
-    async fn del(&self, key: &str) -> anyhow::Result<()> {
-        let conn = self.pool.get().await?;
-        let _ = conn.del(key).await?;
+    async fn del(&self, key: &str) -> Result<(), String> {
+        let conn = self.pool.get().await.map_err(err_string)?;
+        let _ = conn.del(key).await.map_err(err_string)?;
         Ok(())
     }
 }

@@ -61,7 +61,7 @@ export function ecdsaVerify(
     }
   }
 
-  throw new Error('failed to verify ECDSA/secp256k1 signature')
+  throw new Error('failed to verify ECDSA/Secp256k1 signature')
 }
 
 export function bytesToBase64Url(bytes: Uint8Array): string {

@@ -19,7 +19,7 @@ const HEADER_RESPONSE_HEADERS = 'response-headers'
 
 export interface Env {
   POLL_INTERVAL: number // in milliseconds
-  CACHE_TTL: number // in milliseconds
+  REQUEST_TIMEOUT: number // in milliseconds
   MY_DURABLE_OBJECT: DurableObjectNamespace
   CACHER: DurableObjectNamespace<Cacher>
 }
@@ -74,7 +74,7 @@ export default {
         const data = await polling_get(
           stub,
           env.POLL_INTERVAL,
-          Math.floor(env.CACHE_TTL / env.POLL_INTERVAL)
+          Math.floor(env.REQUEST_TIMEOUT / env.POLL_INTERVAL)
         )
         const rd = ResponseData.fromBytes(data)
         return rd.toResponse()
@@ -127,7 +127,7 @@ async function polling_get(
     await new Promise((resolve) => setTimeout(resolve, poll_interval))
   }
 
-  throw new Error('get cache timeout')
+  throw new Error('polling get cache timeout')
 }
 
 // Durable Object
@@ -138,7 +138,7 @@ export class Cacher extends DurableObject {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
     this.status = 0
-    this.ttl = env.CACHE_TTL || 10 * 1000
+    this.ttl = env.REQUEST_TIMEOUT || 10 * 1000
 
     this.ctx.blockConcurrencyWhile(async () => {
       this.status = (await this.ctx.storage.get('s')) || 0
@@ -158,7 +158,9 @@ export class Cacher extends DurableObject {
   }
 
   async get(): Promise<Uint8Array | null> {
-    if (this.status != 2) {
+    if (this.status == 0) {
+      throw new Error('not obtained')
+    } else if (this.status != 2) {
       return null
     }
     return (await this.ctx.storage.get('v')) || null

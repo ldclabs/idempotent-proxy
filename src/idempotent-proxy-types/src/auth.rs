@@ -75,7 +75,7 @@ pub fn ecdsa_verify(keys: &[ecdsa::VerifyingKey], data: &[u8]) -> Result<Token, 
         }
     }
 
-    Err("failed to verify Secp256k1 signature".to_string())
+    Err("failed to verify ECDSA/Secp256k1 signature".to_string())
 }
 
 pub fn sha3_256(data: &[u8]) -> [u8; 32] {

@@ -89,7 +89,7 @@ pub async fn proxy(
         if host.is_empty() {
             return Err((
                 StatusCode::BAD_REQUEST,
-                "missing x-forwarded-host header".to_string(),
+                "missing header: x-forwarded-host".to_string(),
             ));
         }
         let path_query = req
@@ -106,7 +106,7 @@ pub async fn proxy(
     if idempotency_key.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
-            "missing idempotency-key header".to_string(),
+            "missing header: idempotency-key".to_string(),
         ));
     }
 
@@ -130,36 +130,28 @@ pub async fn proxy(
         .cacher
         .obtain(&idempotency_key, app.cacher.cache_ttl)
         .await
-        .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+        .map_err(err_response)?;
     if !lock {
-        match app
+        let data = app
             .cacher
-            .polling_get(&idempotency_key, app.cacher.poll_interval)
+            .polling_get(
+                &idempotency_key,
+                app.cacher.poll_interval,
+                app.cacher.cache_ttl / app.cacher.poll_interval,
+            )
             .await
-            .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?
-        {
-            Some(res) => {
-                // if !method.is_safe() {
-                //     // drain the body
-                //     let _ = to_bytes(req.into_body(), 1024 * 1024 * 2).await;
-                // }
-                log::info!(target: "handler",
+            .map_err(err_response)?;
+
+        let res = ResponseData::try_from(&data[..]).map_err(err_response)?;
+        log::info!(target: "handler",
                     action = "cachehit",
                     method = method,
                     url = url.to_string(),
-                    status = 200u16,
+                    status = res.status,
                     subject = subject,
                     idempotency_key = idempotency_key;
                     "");
-                return Ok(res.into_response());
-            }
-            None => {
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "get cache failed".to_string(),
-                ))
-            }
-        }
+        return Ok(res.into_response());
     }
 
     let res = {
@@ -173,49 +165,32 @@ pub async fn proxy(
 
         let mut rreq = reqwest::Request::new(method.clone(), url.clone());
         *rreq.headers_mut() = headers;
-        *rreq.version_mut() = http::Version::HTTP_11;
 
         if !method.is_safe() {
-            let body = to_bytes(req.into_body(), 1024 * 1024 * 2)
+            let body = to_bytes(req.into_body(), 1024 * 1024)
                 .await
                 .map_err(|err| (StatusCode::BAD_REQUEST, err.to_string()))?;
             *rreq.body_mut() = Some(reqwest::Body::from(body));
         }
 
-        let rres = app
-            .http_client
-            .execute(rreq)
-            .await
-            .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+        let rres = app.http_client.execute(rreq).await.map_err(err_response)?;
         let status = rres.status();
         let headers = rres.headers().to_owned();
-        let res_body = rres
-            .bytes()
-            .await
-            .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+        let res_body = rres.bytes().await.map_err(err_response)?;
 
-        if status == StatusCode::OK {
-            let mut data = ResponseData::default();
-            data.with_headers(&headers, &response_headers);
-            data.with_body(&res_body, &json_mask)
-                .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+        if status.is_success() {
+            let mut rd = ResponseData::new(status.as_u16());
+            rd.with_headers(&headers, &response_headers);
+            rd.with_body(&res_body, &json_mask).map_err(err_response)?;
+            let data = rd.to_bytes().map_err(err_response)?;
 
             let _ = app
                 .cacher
-                .set(&idempotency_key, &data, app.cacher.cache_ttl)
+                .set(&idempotency_key, data, app.cacher.cache_ttl)
                 .await
-                .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+                .map_err(err_response)?;
 
-            Ok(data.into_response())
-        } else if status.is_success() {
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!(
-                    "unexpected status: {}, body: {}",
-                    status,
-                    String::from_utf8_lossy(&res_body)
-                ),
-            ))
+            Ok(rd.into_response())
         } else {
             Err((status, String::from_utf8_lossy(&res_body).to_string()))
         }
@@ -248,7 +223,11 @@ pub async fn proxy(
     }
 }
 
-pub fn extract_header<K>(hm: &HeaderMap, key: K, or: impl FnOnce() -> String) -> String
+fn err_response(err: impl std::fmt::Display) -> (StatusCode, String) {
+    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+}
+
+fn extract_header<K>(hm: &HeaderMap, key: K, or: impl FnOnce() -> String) -> String
 where
     K: AsHeaderName,
 {

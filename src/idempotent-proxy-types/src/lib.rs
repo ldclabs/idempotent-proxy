@@ -10,3 +10,7 @@ pub static HEADER_X_FORWARDED_PROTO: HeaderName = HeaderName::from_static("x-for
 pub static HEADER_IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
 pub static HEADER_X_JSON_MASK: HeaderName = HeaderName::from_static("x-json-mask");
 pub static HEADER_RESPONSE_HEADERS: HeaderName = HeaderName::from_static("response-headers");
+
+pub fn err_string(err: impl std::fmt::Display) -> String {
+    err.to_string()
+}

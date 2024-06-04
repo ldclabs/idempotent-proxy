@@ -23,24 +23,28 @@ async fn main() {
         .with_target_writer("*", new_writer(tokio::io::stdout()))
         .init();
 
+    let req_timeout: u64 = std::env::var("REQUEST_TIMEOUT")
+        .map(|n| n.parse().unwrap())
+        .unwrap_or(10000u64)
+        .max(1000u64);
+
     let http_client = ClientBuilder::new()
         .http2_keep_alive_interval(Some(Duration::from_secs(25)))
         .http2_keep_alive_timeout(Duration::from_secs(15))
         .http2_keep_alive_while_idle(true)
         .connect_timeout(Duration::from_secs(10))
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_millis(req_timeout))
         .gzip(true)
         .build()
         .unwrap();
 
     let redis_client = redis::new(
         &std::env::var("REDIS_URL").expect("REDIS_URL not found"),
-        std::env::var("REDIS_POLL_INTERVAL")
+        std::env::var("POLL_INTERVAL")
             .map(|n| n.parse().unwrap())
-            .unwrap_or(300u64),
-        std::env::var("REDIS_CACHE_TTL")
-            .map(|n| n.parse().unwrap())
-            .unwrap_or(30000u64),
+            .unwrap_or(100u64)
+            .max(10u64),
+        req_timeout,
     )
     .await
     .unwrap();
@@ -81,7 +85,13 @@ async fn main() {
 
     let handle = axum_server::Handle::new();
     let app = Router::new()
-        .route("/*any", post(handler::proxy).get(handler::proxy))
+        .route(
+            "/*any",
+            post(handler::proxy)
+                .get(handler::proxy)
+                .put(handler::proxy)
+                .delete(handler::proxy),
+        )
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
             cacher: Arc::new(redis_client),

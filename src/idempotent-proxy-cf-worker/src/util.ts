@@ -74,6 +74,7 @@ export class ResponseData {
 
   setHeaders(headers: Headers, filtering: string): this {
     const fi = filtering
+      .toLocaleLowerCase()
       .split(',')
       .map((v) => v.trim())
       .filter((v) => v.length > 0)
