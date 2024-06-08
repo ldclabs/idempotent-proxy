@@ -34,16 +34,17 @@ export class EnvVars {
     return this._pubKeys.ecdsa.length > 0 || this._pubKeys.ed25519.length > 0
   }
 
-  verifyToken(token: string) {
+  // return the agent name if the token is valid
+  verifyToken(token: string): string {
     if (!token.startsWith('Bearer ')) {
       throw new Error('invalid bearer token')
     }
 
     const data = base64ToBytes(token.slice(7))
     if (this._pubKeys.ecdsa.length > 0) {
-      return ecdsaVerify(this._pubKeys.ecdsa, data)
+      return ecdsaVerify(this._pubKeys.ecdsa, data)[1]
     } else if (this._pubKeys.ed25519.length > 0) {
-      return ed25519Verify(this._pubKeys.ecdsa, data)
+      return ed25519Verify(this._pubKeys.ecdsa, data)[1]
     }
 
     throw new Error('no public key found')

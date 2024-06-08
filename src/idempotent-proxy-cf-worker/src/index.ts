@@ -20,6 +20,7 @@ const HEADER_RESPONSE_HEADERS = 'response-headers'
 export interface Env {
   POLL_INTERVAL: number // in milliseconds
   REQUEST_TIMEOUT: number // in milliseconds
+  ALLOW_AGENTS: string[]
   MY_DURABLE_OBJECT: DurableObjectNamespace
   CACHER: DurableObjectNamespace<Cacher>
 }
@@ -31,14 +32,22 @@ export default {
     env: Env,
     _ctx: ExecutionContext
   ): Promise<Response> {
+    const ev = new EnvVars(env)
+    let agent = 'ANON'
+    if (ev.parsePubkeys()) {
+      agent = ev.verifyToken(req.headers.get(HEADER_PROXY_AUTHORIZATION) || '')
+    }
+
+    if (env.ALLOW_AGENTS.length > 0 && !env.ALLOW_AGENTS.includes(agent)) {
+      return new Response(`agent ${agent} is not allowed`, { status: 403 })
+    }
+
     let url = new URL(req.url)
     if (req.method == 'GET' && url.pathname == '/') {
       return new Response('idempotent-proxy-cf-worker', {
         headers: { 'content-type': 'text/plain' }
       })
     }
-
-    const ev = new EnvVars(env)
 
     if (url.pathname.startsWith('/URL_')) {
       url = new URL(ev.getString(url.pathname.slice(1)))
@@ -61,11 +70,7 @@ export default {
       })
     }
 
-    if (ev.parsePubkeys()) {
-      ev.verifyToken(req.headers.get(HEADER_PROXY_AUTHORIZATION) || '')
-    }
-
-    const id = env.CACHER.idFromName(`${req.method}:${idempotencyKey}`)
+    const id = env.CACHER.idFromName(`${agent}:${req.method}:${idempotencyKey}`)
     const stub = env.CACHER.get(id)
 
     try {

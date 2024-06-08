@@ -7,7 +7,10 @@ use base64::{engine::general_purpose, Engine};
 use http::{header::AsHeaderName, HeaderMap, HeaderValue, StatusCode};
 use k256::ecdsa;
 use reqwest::Client;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+};
 
 use crate::redis::RedisClient;
 use idempotent_proxy_types::auth;
@@ -18,6 +21,7 @@ use idempotent_proxy_types::*;
 pub struct AppState {
     pub http_client: Arc<Client>,
     pub cacher: Arc<RedisClient>,
+    pub agents: Arc<BTreeSet<String>>,
     pub url_vars: Arc<HashMap<String, String>>,
     pub header_vars: Arc<HashMap<String, HeaderValue>>,
     pub ecdsa_pub_keys: Arc<Vec<ecdsa::VerifyingKey>>,
@@ -71,6 +75,27 @@ pub async fn proxy(
     State(app): State<AppState>,
     req: Request,
 ) -> Result<Response, (StatusCode, String)> {
+    // Access control
+    let agent = if !app.ecdsa_pub_keys.is_empty() || !app.ed25519_pub_keys.is_empty() {
+        let token = extract_header(req.headers(), &HEADER_PROXY_AUTHORIZATION, || {
+            "".to_string()
+        });
+
+        match app.verify_token(&token) {
+            Err(err) => return Err((StatusCode::PROXY_AUTHENTICATION_REQUIRED, err)),
+            Ok(agent) => agent,
+        }
+    } else {
+        "ANON".to_string()
+    };
+
+    if !app.agents.is_empty() && !app.agents.contains(&agent) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            format!("agent {} is not allowed", agent),
+        ));
+    }
+
     let method = req.method().to_string();
     let path = req.uri().path();
     let url = if path.starts_with("/URL_") {
@@ -110,21 +135,7 @@ pub async fn proxy(
         ));
     }
 
-    // Access control
-    let subject = if !app.ecdsa_pub_keys.is_empty() || !app.ed25519_pub_keys.is_empty() {
-        let token = extract_header(req.headers(), &HEADER_PROXY_AUTHORIZATION, || {
-            "".to_string()
-        });
-
-        match app.verify_token(&token) {
-            Err(err) => return Err((StatusCode::PROXY_AUTHENTICATION_REQUIRED, err)),
-            Ok(subject) => subject,
-        }
-    } else {
-        "".to_string()
-    };
-
-    let idempotency_key = format!("{}:{}", method, idempotency_key);
+    let idempotency_key = format!("{}:{}:{}", agent, method, idempotency_key);
 
     let lock = app
         .cacher
@@ -148,7 +159,7 @@ pub async fn proxy(
                     method = method,
                     url = url.to_string(),
                     status = res.status,
-                    subject = subject,
+                    agent = agent,
                     idempotency_key = idempotency_key;
                     "");
         return Ok(res.into_response());
@@ -204,7 +215,7 @@ pub async fn proxy(
                 method = method,
                 url = url.to_string(),
                 status = 200u16,
-                subject = subject,
+                agent = agent,
                 idempotency_key = idempotency_key;
                 "");
             Ok(res)
@@ -216,7 +227,7 @@ pub async fn proxy(
                 method = method,
                 url = url.to_string(),
                 status = status.as_u16(),
-                subject = subject,
+                agent = agent,
                 idempotency_key = idempotency_key;
                 "{}", msg);
             Err((status, msg))

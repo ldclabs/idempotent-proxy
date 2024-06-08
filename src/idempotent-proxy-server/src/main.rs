@@ -5,7 +5,12 @@ use dotenvy::dotenv;
 use http::HeaderValue;
 use k256::ecdsa;
 use reqwest::ClientBuilder;
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeSet, HashMap},
+    net::SocketAddr,
+    sync::Arc,
+    time::Duration,
+};
 use structured_logger::{async_json::new_writer, get_env_level, Builder};
 use tokio::signal;
 
@@ -49,6 +54,19 @@ async fn main() {
     .await
     .unwrap();
 
+    let agents: BTreeSet<String> = std::env::var("ALLOW_AGENTS")
+        .unwrap_or_default()
+        .split(',')
+        .filter_map(|s| {
+            let s = s.trim();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_string())
+            }
+        })
+        .collect();
+
     let url_vars: HashMap<String, String> = std::env::vars()
         .filter(|(k, _)| k.starts_with("URL_"))
         .collect();
@@ -89,6 +107,7 @@ async fn main() {
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
             cacher: Arc::new(redis_client),
+            agents: Arc::new(agents),
             url_vars: Arc::new(url_vars),
             header_vars: Arc::new(header_vars),
             ecdsa_pub_keys: Arc::new(ecdsa_pub_keys),

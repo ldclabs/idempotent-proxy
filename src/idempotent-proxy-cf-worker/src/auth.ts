@@ -5,15 +5,16 @@ import { secp256k1 } from '@noble/curves/secp256k1'
 
 const PERMITTED_DRIFT = 10 // seconds
 
+// Token format: [expire_at in seconds, agent, signature]
 export type Token = [number, string, Uint8Array]
 
 export function ed25519Sign(
   privateKey: Uint8Array,
   expire_at: number,
-  message: String
+  agent: String
 ): Uint8Array {
-  const sig = ed25519.sign(encode([expire_at, message]), privateKey)
-  return encode([expire_at, message, sig])
+  const sig = ed25519.sign(encode([expire_at, agent]), privateKey)
+  return encode([expire_at, agent, sig])
 }
 
 export function ed25519Verify(
@@ -38,11 +39,11 @@ export function ed25519Verify(
 export function ecdsaSign(
   privateKey: Uint8Array,
   expire_at: number,
-  message: String
+  agent: String
 ): Uint8Array {
-  const digest = sha3(encode([expire_at, message]))
+  const digest = sha3(encode([expire_at, agent]))
   const sig = secp256k1.sign(digest, privateKey)
-  return encode([expire_at, message, sig])
+  return encode([expire_at, agent, sig])
 }
 
 export function ecdsaVerify(
