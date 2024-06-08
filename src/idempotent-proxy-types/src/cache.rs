@@ -74,6 +74,11 @@ impl ResponseData {
 
     pub fn with_body(&mut self, body: &[u8], filtering: &str) -> Result<(), String> {
         let filtering: Vec<&str> = split_filtering(filtering);
+        if self.status >= 300 || filtering.is_empty() {
+            self.body.extend_from_slice(body);
+            return Ok(());
+        }
+
         match &self.mime {
             v if !filtering.is_empty() && v.contains("application/json") => {
                 let obj: serde_json::Value = serde_json::from_slice(body).map_err(err_string)?;

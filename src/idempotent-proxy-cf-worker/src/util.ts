@@ -96,7 +96,7 @@ export class ResponseData {
       .split(',')
       .map((v) => v.trim())
       .filter((v) => v.length > 0)
-    if (fi.length > 0 && this.mime.includes('application/json')) {
+    if (fi.length > 0 && this.status < 300 && this.mime.includes('application/json')) {
       const decoder = new TextDecoder()
       const str = decoder.decode(body)
       const obj = JSON.parse(str)
@@ -108,7 +108,7 @@ export class ResponseData {
       }
 
       this.body = new TextEncoder().encode(JSON.stringify(newObj))
-    } else if (fi.length > 0 && this.mime.includes('application/cbor')) {
+    } else if (fi.length > 0 && this.status < 300 && this.mime.includes('application/cbor')) {
       const obj = decode(body)
       const newObj = {} as any
       for (const key of fi) {

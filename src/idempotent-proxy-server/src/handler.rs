@@ -178,7 +178,8 @@ pub async fn proxy(
         let headers = rres.headers().to_owned();
         let res_body = rres.bytes().await.map_err(err_response)?;
 
-        if status.is_success() {
+        // If the HTTP status code is 500 or below, it's considered a server response and should be cached; any exceptions should be handled by the client. Otherwise, it's considered a non-response from the server and should not be cached.
+        if status >= StatusCode::OK && status <= StatusCode::INTERNAL_SERVER_ERROR {
             let mut rd = ResponseData::new(status.as_u16());
             rd.with_headers(&headers, &response_headers);
             rd.with_body(&res_body, &json_mask).map_err(err_response)?;

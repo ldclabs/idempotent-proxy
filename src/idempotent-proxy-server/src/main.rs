@@ -1,4 +1,4 @@
-use axum::{routing::post, Router};
+use axum::{routing, Router};
 use axum_server::tls_rustls::RustlsConfig;
 use base64::{engine::general_purpose, Engine};
 use dotenvy::dotenv;
@@ -85,13 +85,7 @@ async fn main() {
 
     let handle = axum_server::Handle::new();
     let app = Router::new()
-        .route(
-            "/*any",
-            post(handler::proxy)
-                .get(handler::proxy)
-                .put(handler::proxy)
-                .delete(handler::proxy),
-        )
+        .route("/*any", routing::any(handler::proxy))
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
             cacher: Arc::new(redis_client),

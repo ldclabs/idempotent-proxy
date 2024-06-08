@@ -86,7 +86,7 @@ export default {
         body: req.body
       })
 
-      if (res.status >= 200 && res.status < 300) {
+      if (res.status >= 200 && res.status <= 500) {
         const data = await res.arrayBuffer()
         const rd = new ResponseData(res.status)
           .setHeaders(
