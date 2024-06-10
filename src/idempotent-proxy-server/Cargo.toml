@@ -1,6 +1,6 @@
 [package]
 name = "idempotent-proxy-server"
-description = "idempotent-proxy server"
+description = "Idempotent proxy server"
 repository = "https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server"
 publish = true
 
