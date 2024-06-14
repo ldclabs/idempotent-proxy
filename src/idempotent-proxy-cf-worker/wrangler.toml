@@ -10,7 +10,7 @@ port = 8080
 # Docs: https://developers.cloudflare.com/workers/platform/environment-variables
 [vars]
 POLL_INTERVAL = 100     # in milliseconds
-REQUEST_TIMEOUT = 10000 # in milliseconds
+REQUEST_TIMEOUT = 20000 # in milliseconds
 ALLOW_AGENTS = []       # Optional: List of allowed agents, ["agent1", "agent2"]
 
 # Bind a Durable Object. Durable objects are a scale-to-zero compute primitive based on the actor model.

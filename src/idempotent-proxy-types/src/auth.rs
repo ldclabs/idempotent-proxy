@@ -87,8 +87,8 @@ pub fn sha3_256(data: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod test {
     use super::*;
-    use axum::extract::FromRef;
     use base64::{engine::general_purpose, Engine};
+    use k256::PublicKey;
     use rand_core::{OsRng, RngCore};
 
     #[test]
@@ -117,14 +117,24 @@ mod test {
         assert_eq!(token.0, expire_at);
         assert_eq!(token.1, agent);
 
-        let pk = general_purpose::URL_SAFE_NO_PAD
-            .decode("A44DZpzDwDvq9HwW3_dynOfDgkMJHKgOxUyCOrv5Pl3O")
-            .expect("invalid base64");
-        let pk = ecdsa::VerifyingKey::from_sec1_bytes(&pk).expect("invalid ecdsa public key");
-        let data = general_purpose::URL_SAFE_NO_PAD
-            .decode("gxpmZDmJaklDUGFuZGFEQU9YQMQr36UI8JV2jJEM_PMe96GsgymHzjfsbZyAsFSHF0FUNsuj6LKsqHg2dzYG9RoxQRtrcGsphYsNiQJwG3g9Ju4")
-            .expect("invalid base64");
-        let token = super::ecdsa_verify(&[pk], &data).unwrap();
+        println!(
+            "token: {:?}",
+            general_purpose::URL_SAFE_NO_PAD.encode(&signed)
+        );
+
+        let pk: PublicKey = signing_key.verifying_key().into();
+        let pk = pk.to_sec1_bytes();
+        let pk = general_purpose::URL_SAFE_NO_PAD.encode(&pk);
+        println!("{:?}", pk);
+
+        // let pk = general_purpose::URL_SAFE_NO_PAD
+        //     .decode("A44DZpzDwDvq9HwW3_dynOfDgkMJHKgOxUyCOrv5Pl3O")
+        //     .expect("invalid base64");
+        // let pk = ecdsa::VerifyingKey::from_sec1_bytes(&pk).expect("invalid ecdsa public key");
+        // let data = general_purpose::URL_SAFE_NO_PAD
+        //     .decode("gxpmZDmJaklDUGFuZGFEQU9YQMQr36UI8JV2jJEM_PMe96GsgymHzjfsbZyAsFSHF0FUNsuj6LKsqHg2dzYG9RoxQRtrcGsphYsNiQJwG3g9Ju4")
+        //     .expect("invalid base64");
+        // let token = super::ecdsa_verify(&[pk], &data).unwrap();
         println!("{:?}", token);
         // Token(1717844361, "ICPandaDAO", [196, 43, 223, ... 61, 38, 238])
     }

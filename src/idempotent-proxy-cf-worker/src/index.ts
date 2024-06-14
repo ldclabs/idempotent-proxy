@@ -35,7 +35,13 @@ export default {
     const ev = new EnvVars(env)
     let agent = 'ANON'
     if (ev.parsePubkeys()) {
-      agent = ev.verifyToken(req.headers.get(HEADER_PROXY_AUTHORIZATION) || '')
+      try {
+        agent = ev.verifyToken(
+          req.headers.get(HEADER_PROXY_AUTHORIZATION) || ''
+        )
+      } catch (err) {
+        return new Response(`${err}`, { status: 407 })
+      }
     }
 
     if (env.ALLOW_AGENTS.length > 0 && !env.ALLOW_AGENTS.includes(agent)) {
