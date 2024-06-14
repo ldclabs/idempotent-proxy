@@ -23,11 +23,11 @@ export class EnvVars {
   }
 
   parsePubkeys(): boolean {
-    for (const [key, value] of this._env) {
+    for (const key of Object.keys(this._env)) {
       if (key.startsWith('ECDSA_PUB_KEY')) {
-        this._pubKeys.ecdsa.push(base64ToBytes(value))
+        this._pubKeys.ecdsa.push(base64ToBytes(this._env[key]))
       } else if (key.startsWith('ED25519_PUB_KEY')) {
-        this._pubKeys.ed25519.push(base64ToBytes(value))
+        this._pubKeys.ed25519.push(base64ToBytes(this._env[key]))
       }
     }
 

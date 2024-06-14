@@ -22,4 +22,4 @@ build:
 	@DOCKER_BUILDKIT=1 docker build --output target -f linux.Dockerfile .
 
 build-xx:
-	@DOCKER_BUILDKIT=1 docker build --output target -f xx.Dockerfile .
+	@DOCKER_BUILDKIT=1 docker build -f xx.Dockerfile -t ldclabs/idempotent-proxy:latest .
