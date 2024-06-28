@@ -853,7 +853,7 @@ dependencies = [
 
 [[package]]
 name = "idempotent-proxy-server"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -877,7 +877,7 @@ dependencies = [
 
 [[package]]
 name = "idempotent-proxy-types"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",

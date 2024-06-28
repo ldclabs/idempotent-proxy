@@ -13,28 +13,95 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 
 If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
 
-## Running as Cloudflare Worker
-
-Idempotent Proxy can be running as a Cloudflare Worker. See the [idempotent-proxy-cf-worker](./src/idempotent-proxy-cf-worker) directory for more information.
-
-## Todo List
+## Features
 - [x] Reverse proxy with build-in idempotency support
 - [x] JSON response filtering
 - [x] Access control
 - [x] Response headers filtering
 - [x] HTTPS support
-- [x] Documentation
 - [x] Running as Cloudflare Worker
-- [ ] Docker image
-- [ ] Examples with ICP canisters
+- [x] Docker image
 
-## Run proxy in development mode
+## Running as Cloudflare Worker
+
+Idempotent Proxy can be running as a Cloudflare Worker. See the [idempotent-proxy-cf-worker](./src/idempotent-proxy-cf-worker) directory for more information.
+
+## Deploy
+
+### Run proxy in development mode
 
 Run proxy:
 ```bash
 docker run --name redis -d -p 6379:6379 redis:latest
 cargo run -p idempotent-proxy-server
 ```
+
+### Run proxy with Docker
+
+files in `/mnt/idempotent-proxy` directory:
+```
+/mnt/idempotent-proxy/.env
+/mnt/idempotent-proxy/keys/doge-test-rpc.panda.fans.key
+/mnt/idempotent-proxy/keys/doge-test-rpc.panda.fans.pem
+```
+
+`.env` file:
+```text
+SERVER_ADDR=0.0.0.0:443
+REDIS_URL=172.16.32.1:6379
+POLL_INTERVAL=100 # in milliseconds
+REQUEST_TIMEOUT=10000 # in milliseconds
+LOG_LEVEL=info # debug, info, warn, error
+# cert file path to enable https, for example: /etc/https/mydomain.crt
+TLS_CERT_FILE = "keys/doge-test-rpc.panda.fans.pem"
+# key file path to enable https, for example: /etc/https/mydomain.key
+TLS_KEY_FILE = "keys/doge-test-rpc.panda.fans.key"
+
+ECDSA_PUB_KEY_1="A44DZpzDwDvq9HwW3_dynOfDgkMJHKgOxUyCOrv5Pl3O"
+
+# ECDSA_PUB_KEY_2="xxxxxx"
+
+ALLOW_AGENTS="ICPanda"
+
+URL_DOGE_TEST="http://172.16.32.1:44555/"
+URL_DOGE="http://172.16.32.1:22555/"
+# URL_XXX=...
+
+HEADER_API_TOKEN="Basic SUNQYW5kYTpJVEZDNlJjam56RkdEQnd0SzByYV9kS0swR29lSElqVUl3V2lEb3VrRWU0"
+# HEADER_XXX=...
+```
+
+Run proxy with Docker:
+```bash
+docker run --restart=always -v /mnt/idempotent-proxy/.env:/app/.env --name proxy -d -p 8080:8080 ghcr.io/ldclabs/idempotent-proxy:latest
+```
+
+### Deploy to Cloudflare Worker
+
+In order to use Durable Objects, you must switch to a paid plan.
+
+```bash
+cd src/idempotent-proxy-cf-worker
+npm i
+npx wrangler deploy
+```
+
+And then update settings in the Cloudflare dashboard to use the Worker.
+
+### Online version for testing
+
+A online version for testing is available at:
+
+https://idempotent-proxy-cf-worker.zensh.workers.dev
+
+Try it out:
+```
+curl -v -X GET 'https://idempotent-proxy-cf-worker.zensh.workers.dev/URL_HTTPBIN' \
+  -H 'idempotency-key: idempotency_key_001' \
+  -H 'content-type: application/json'
+```
+
+## Request Examples
 
 ### Regular Proxy Request Example
 
@@ -252,3 +319,8 @@ A 407 response:
 * Connection #0 to host localhost left intact
 proxy authentication verify failed: failed to decode CBOR data
 ```
+
+## License
+Copyright © 2024 [LDC Labs](https://github.com/ldclabs).
+
+`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](LICENSE-MIT) for the full license text.
