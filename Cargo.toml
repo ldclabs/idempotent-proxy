@@ -3,11 +3,11 @@ members = ["src/idempotent-proxy-server", "src/idempotent-proxy-types"]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 repository = "https://github.com/ldclabs/idempotent-proxy"
 keywords = ["idempotent", "reverse", "proxy", "icp"]
-categories = ["proxy"]
+categories = ["web-programming"]
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
@@ -45,6 +45,6 @@ ciborium = "0.2"
 anyhow = "1"
 k256 = { version = "0.13", features = ["ecdsa"] }
 ed25519-dalek = "2"
-base64 = "0.21"
+base64 = "0.22"
 sha3 = "0.10"
 chrono = { version = "0.4", features = ["serde"] }

@@ -19,7 +19,7 @@ fix:
 	@cargo clippy --fix --workspace --tests
 
 build:
-	@DOCKER_BUILDKIT=1 docker build --output target -f linux.Dockerfile .
+	@DOCKER_BUILDKIT=1 docker build -f Dockerfile -t ldclabs/idempotent-proxy:latest .
 
-build-xx:
-	@DOCKER_BUILDKIT=1 docker build -f xx.Dockerfile -t ldclabs/idempotent-proxy:latest .
+build-linux:
+	@DOCKER_BUILDKIT=1 docker build --output target -f linux.Dockerfile .

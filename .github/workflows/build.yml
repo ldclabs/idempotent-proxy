@@ -1,0 +1,22 @@
+name: Docker
+on:
+  push:
+    tags:
+      - 'v*'
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ldclabs/idempotent-proxy
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - name: Build the Docker image
+      run: |
+        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        docker buildx create --use
+        docker login --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} ${{ env.REGISTRY }}
+        IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+        TAGS="-t ${IMAGE_TAG}"
+        docker buildx build --platform='linux/amd64,linux/arm64' $TAGS --push .
