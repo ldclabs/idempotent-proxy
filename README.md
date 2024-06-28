@@ -73,7 +73,7 @@ HEADER_API_TOKEN="Basic SUNQYW5kYTpJVEZDNlJjam56RkdEQnd0SzByYV9kS0swR29lSElqVUl3
 
 Run proxy with Docker:
 ```bash
-docker run --restart=always -v /mnt/idempotent-proxy/.env:/app/.env --name proxy -d -p 8080:8080 ghcr.io/ldclabs/idempotent-proxy:latest
+docker run --restart=always -v /mnt/idempotent-proxy/.env:/app/.env -v /mnt/idempotent-proxy/keys:/app/keys --name proxy -d -p 443:443 ghcr.io/ldclabs/idempotent-proxy:latest
 ```
 
 ### Deploy to Cloudflare Worker
