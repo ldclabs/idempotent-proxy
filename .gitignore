@@ -15,3 +15,6 @@ node_modules/
 *.pdb
 debug
 .wrangler
+.dfx
+
+examples/**/.env

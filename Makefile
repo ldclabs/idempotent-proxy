@@ -23,3 +23,11 @@ build:
 
 build-linux:
 	@DOCKER_BUILDKIT=1 docker build --output target -f linux.Dockerfile .
+
+# cargo install ic-wasm
+build-wasm:
+	@cargo build --release --target wasm32-unknown-unknown --package eth-canister
+
+# cargo install candid-extractor
+build-did:
+	@candid-extractor target/wasm32-unknown-unknown/release/eth_canister.wasm > examples/eth-canister/eth-canister.did

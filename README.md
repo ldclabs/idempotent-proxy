@@ -1,5 +1,9 @@
 # Idempotent Proxy
-Reverse proxy server with build-in idempotency support written in Rust.
+💈 Reverse proxy server with build-in idempotency support written in Rust.
+
+💝 This project received a **$5k Developer Grant** from the Dfinity Foundation.
+
+See: https://forum.dfinity.org/t/idempotent-proxy-proxy-https-outcalls-to-any-web2-service/30624
 
 ## Overview
 
@@ -11,8 +15,6 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 
 ![Idempotent Proxy](./idempotent-proxy.png)
 
-If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
-
 ## Features
 - [x] Reverse proxy with build-in idempotency support
 - [x] JSON response filtering
@@ -22,9 +24,38 @@ If you plan to use this project and have any questions, feel free to open an iss
 - [x] Running as Cloudflare Worker
 - [x] Docker image
 
+## Who's using?
+
+- [CK-Doge](https://github.com/ldclabs/ck-doge)
+
+If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
+
+## ICP Canister Integration
+
+Online `eth-canister`: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=hpudd-yqaaa-aaaap-ahnbq-cai
+
+Go to the [examples/eth-canister](./examples/eth-canister) directory for more information.
+
 ## Running as Cloudflare Worker
 
-Idempotent Proxy can be running as a Cloudflare Worker. See the [idempotent-proxy-cf-worker](./src/idempotent-proxy-cf-worker) directory for more information.
+Idempotent Proxy can be running as a Cloudflare Worker. A online version for testing is available at:
+
+https://idempotent-proxy-cf-worker.zensh.workers.dev
+
+Try it out:
+```
+curl -v -X GET 'https://idempotent-proxy-cf-worker.zensh.workers.dev/URL_HTTPBIN' \
+  -H 'idempotency-key: idempotency_key_001' \
+  -H 'content-type: application/json'
+```
+
+More `URL_` constants:
+- URL_CF_ETH: https://cloudflare-eth.com
+- URL_ANKR_ETH: https://rpc.ankr.com/eth
+
+`idempotent-proxy-cf-worker` does not enable `proxy-authorization`, so it can be accessed.
+
+Go to the [idempotent-proxy-cf-worker](./src/idempotent-proxy-cf-worker) directory for more information.
 
 ## Deploy
 
@@ -87,19 +118,6 @@ npx wrangler deploy
 ```
 
 And then update settings in the Cloudflare dashboard to use the Worker.
-
-### Online version for testing
-
-A online version for testing is available at:
-
-https://idempotent-proxy-cf-worker.zensh.workers.dev
-
-Try it out:
-```
-curl -v -X GET 'https://idempotent-proxy-cf-worker.zensh.workers.dev/URL_HTTPBIN' \
-  -H 'idempotency-key: idempotency_key_001' \
-  -H 'content-type: application/json'
-```
 
 ## Request Examples
 
