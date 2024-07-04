@@ -1,7 +1,7 @@
 # Idempotent Proxy
-💈 Reverse proxy server with build-in idempotency support written in Rust.
+💈 Reverse proxy server with build-in idempotency support written in Rust & Cloudflare Worker.
 
-💝 This project received a **$5k Developer Grant** from the Dfinity Foundation.
+💝 This project received a [**$5k Developer Grant**](https://forum.dfinity.org/t/idempotent-proxy-proxy-https-outcalls-to-any-web2-service/30624) from the [DFINITY Foundation](https://dfinity.org/grants).
 
 ## Overview
 
@@ -33,7 +33,7 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 
 ## Who's using?
 
-- [CK-Doge](https://github.com/ldclabs/ck-doge)
+- [CK-Doge](https://github.com/ldclabs/ck-doge): An on-chain integration with the Dogecoin network on the Internet Computer.
 
 If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
 
