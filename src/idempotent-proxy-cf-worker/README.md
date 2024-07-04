@@ -11,8 +11,6 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 
 ![Idempotent Proxy](./idempotent-proxy.png)
 
-If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
-
 ## Run proxy in local development mode
 
 Run proxy:
@@ -47,4 +45,4 @@ More information: https://github.com/ldclabs/idempotent-proxy
 ## License
 Copyright © 2024 [LDC Labs](https://github.com/ldclabs).
 
-`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](LICENSE-MIT) for the full license text.
+`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](../../LICENSE-MIT) for the full license text.

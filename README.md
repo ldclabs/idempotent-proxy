@@ -3,8 +3,6 @@
 
 💝 This project received a **$5k Developer Grant** from the Dfinity Foundation.
 
-See: https://forum.dfinity.org/t/idempotent-proxy-proxy-https-outcalls-to-any-web2-service/30624
-
 ## Overview
 
 The idempotent-proxy is a reverse proxy service written in Rust with built-in idempotency support.
@@ -14,6 +12,15 @@ When multiple requests with the same idempotency-key arrive within a specific ti
 This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/advanced-features/https-outcalls/https-outcalls-overview) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service. It supports hiding secret information, access control, returning only the necessary headers and, for JSON or CBOR data, allows response filtering based on JSON Mask to return only required fields, thus saving cycles consumption in ICP canisters.
 
 ![Idempotent Proxy](./idempotent-proxy.png)
+
+## Packages
+
+| Package                                                                                                            | Description                                                         |
+| :----------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
+| [idempotent-proxy-server](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server)       | Idempotent Proxy implemented in Rust.                               |
+| [idempotent-proxy-cf-worker](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker) | Idempotent Proxy implemented as Cloudflare Worker.                  |
+| [idempotent-proxy-types](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-types)         | Idempotent Proxy types in Rust. Should not be used in ICP canister! |
+| [examples/eth-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister)               | A ICP canister integration with Ethereum JSON-RPC API.              |
 
 ## Features
 - [x] Reverse proxy with build-in idempotency support

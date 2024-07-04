@@ -53,4 +53,4 @@ dfx canister call eth-canister get_best_block '()'
 ## License
 Copyright © 2024 [LDC Labs](https://github.com/ldclabs).
 
-`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](LICENSE-MIT) for the full license text.
+`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](../../LICENSE-MIT) for the full license text.

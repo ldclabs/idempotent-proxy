@@ -9,7 +9,7 @@ When multiple requests with the same idempotency-key arrive within a specific ti
 
 This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/advanced-features/https-outcalls/https-outcalls-overview) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service. It supports hiding secret information, access control, returning only the necessary headers and, for JSON or CBOR data, allows response filtering based on JSON Mask to return only required fields, thus saving cycles consumption in ICP canisters.
 
-![Idempotent Proxy](./idempotent-proxy.png)
+![Idempotent Proxy](../../idempotent-proxy.png)
 
 ## Features
 - [x] Reverse proxy with build-in idempotency support
@@ -25,4 +25,4 @@ More information: https://github.com/ldclabs/idempotent-proxy
 ## License
 Copyright © 2024 [LDC Labs](https://github.com/ldclabs).
 
-`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](LICENSE-MIT) for the full license text.
+`ldclabs/idempotent-proxy` is licensed under the MIT License. See [LICENSE](../../LICENSE-MIT) for the full license text.
