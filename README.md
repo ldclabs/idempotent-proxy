@@ -1,5 +1,5 @@
 # Idempotent Proxy
-💈 Reverse proxy server with build-in idempotency support written in Rust & Cloudflare Worker.
+💈 Reverse proxy server with built-in idempotency support, written in Rust & Cloudflare Worker.
 
 💝 This project received a [**$5k Developer Grant**](https://forum.dfinity.org/t/idempotent-proxy-proxy-https-outcalls-to-any-web2-service/30624) from the [DFINITY Foundation](https://dfinity.org/grants).
 
@@ -7,11 +7,19 @@
 
 The idempotent-proxy is a reverse proxy service written in Rust with built-in idempotency support.
 
-When multiple requests with the same idempotency-key arrive within a specific timeframe, only the first request is forwarded to the target service. The response is cached in Redis, and subsequent requests poll Redis to retrieve and return the first request's response.
+When multiple requests with the same idempotency key arrive within a specific timeframe, only the first request is forwarded to the target service. The response is cached in Redis (or DurableObject in Cloudflare Worker), and subsequent requests retrieve the cached response, ensuring consistent results.
 
-This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/advanced-features/https-outcalls/https-outcalls-overview) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service. It supports hiding secret information, access control, returning only the necessary headers and, for JSON or CBOR data, allows response filtering based on JSON Mask to return only required fields, thus saving cycles consumption in ICP canisters.
+This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/advanced-features/https-outcalls/https-outcalls-overview) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service.
 
 ![Idempotent Proxy](./idempotent-proxy.png)
+
+## Features
+- Reverse proxy with built-in idempotency support
+- Confidential information masking
+- JSON and CBOR response filtering
+- Response headers filtering
+- Access control using Secp256k1 and Ed25519
+- Deployable with Docker or Cloudflare Worker
 
 ## Packages
 
@@ -22,30 +30,39 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 | [idempotent-proxy-types](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-types)         | Idempotent Proxy types in Rust. Should not be used in ICP canister! |
 | [examples/eth-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister)               | A ICP canister integration with Ethereum JSON-RPC API.              |
 
-## Features
-- [x] Reverse proxy with build-in idempotency support
-- [x] JSON response filtering
-- [x] Access control
-- [x] Response headers filtering
-- [x] HTTPS support
-- [x] Running as Cloudflare Worker
-- [x] Docker image
-
 ## Who's using?
 
 - [CK-Doge](https://github.com/ldclabs/ck-doge): An on-chain integration with the Dogecoin network on the Internet Computer.
 
 If you plan to use this project and have any questions, feel free to open an issue. I will address it as soon as possible.
 
-## ICP Canister Integration
+## Usage
+
+### ICP Canister Integration
 
 Online `eth-canister`: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=hpudd-yqaaa-aaaap-ahnbq-cai
 
 Go to the [examples/eth-canister](./examples/eth-canister) directory for more information.
 
-## Running as Cloudflare Worker
+### Run proxy in development mode
 
-Idempotent Proxy can be running as a Cloudflare Worker. A online version for testing is available at:
+Run proxy:
+```bash
+docker run --name redis -d -p 6379:6379 redis:latest
+cargo run -p idempotent-proxy-server
+```
+
+### Running as Cloudflare Worker
+
+Idempotent Proxy can be running as a Cloudflare Worker. In order to use Durable Objects, you must switch to a paid plan.
+
+```bash
+cd src/idempotent-proxy-cf-worker
+npm i
+npx wrangler deploy
+```
+
+A online version for testing is available at:
 
 https://idempotent-proxy-cf-worker.zensh.workers.dev
 
@@ -63,16 +80,6 @@ More `URL_` constants:
 `idempotent-proxy-cf-worker` does not enable `proxy-authorization`, so it can be accessed.
 
 Go to the [idempotent-proxy-cf-worker](./src/idempotent-proxy-cf-worker) directory for more information.
-
-## Deploy
-
-### Run proxy in development mode
-
-Run proxy:
-```bash
-docker run --name redis -d -p 6379:6379 redis:latest
-cargo run -p idempotent-proxy-server
-```
 
 ### Run proxy with Docker
 
@@ -113,18 +120,6 @@ Run proxy with Docker:
 ```bash
 docker run --restart=always -v /mnt/idempotent-proxy/.env:/app/.env -v /mnt/idempotent-proxy/keys:/app/keys --name proxy -d -p 443:443 ghcr.io/ldclabs/idempotent-proxy:latest
 ```
-
-### Deploy to Cloudflare Worker
-
-In order to use Durable Objects, you must switch to a paid plan.
-
-```bash
-cd src/idempotent-proxy-cf-worker
-npm i
-npx wrangler deploy
-```
-
-And then update settings in the Cloudflare dashboard to use the Worker.
 
 ## Request Examples
 

@@ -19,11 +19,13 @@ npm i
 npx wrangler dev
 ```
 
+
 ## Deploy to Cloudflare Worker
 
 In order to use Durable Objects, you must switch to a paid plan.
 
 ```bash
+npm i
 npx wrangler deploy
 ```
 
