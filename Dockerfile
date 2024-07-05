@@ -51,7 +51,7 @@ COPY --from=planner /src/recipe.json recipe.json
 RUN xx-cargo chef cook --release --recipe-path recipe.json
 
 COPY . .
-RUN xx-cargo build --release --locked \
+RUN xx-cargo build --release --locked -p idempotent-proxy-server \
     && xx-verify target/$(xx-cargo --print-target-triple)/release/idempotent-proxy-server \
     && mv target/$(xx-cargo --print-target-triple)/release /src/release
 

@@ -8,7 +8,7 @@ RUN apt-get update \
 WORKDIR /src
 COPY src ./src
 COPY Cargo.toml Cargo.lock ./
-RUN cargo build --release --locked
+RUN cargo build --release --locked -p idempotent-proxy-server
 RUN ls target/release
 
 FROM scratch AS exporter
