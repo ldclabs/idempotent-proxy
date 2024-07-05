@@ -12,4 +12,9 @@ jobs:
       with:
         registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         ignore-unpublished-changes: true
-        args: -p idempotent-proxy-types -p idempotent-proxy-server
+        args: -p idempotent-proxy-types
+    - uses: katyo/publish-crates@v2
+      with:
+        registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        ignore-unpublished-changes: true
+        args: -p idempotent-proxy-server
