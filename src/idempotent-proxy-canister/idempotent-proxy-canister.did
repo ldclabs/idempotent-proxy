@@ -1,0 +1,52 @@
+type Agent = record {
+  proxy_token : opt text;
+  endpoint : text;
+  name : text;
+  max_cycles : nat64;
+};
+type CanisterHttpRequestArgument = record {
+  url : text;
+  method : HttpMethod;
+  max_response_bytes : opt nat64;
+  body : opt blob;
+  transform : opt TransformContext;
+  headers : vec HttpHeader;
+};
+type ChainArgs = variant { Upgrade : UpgradeArgs; Init : InitArgs };
+type HttpHeader = record { value : text; name : text };
+type HttpMethod = variant { get; head; post };
+type HttpResponse = record {
+  status : nat;
+  body : blob;
+  headers : vec HttpHeader;
+};
+type InitArgs = record {
+  ecdsa_key_name : text;
+  proxy_token_refresh_interval : nat64;
+};
+type Result = variant { Ok : bool; Err : text };
+type Result_1 = variant { Ok; Err : text };
+type Result_2 = variant { Ok : State; Err };
+type State = record {
+  proxy_token_public_key : text;
+  ecdsa_key_name : text;
+  managers : vec principal;
+  agents : vec Agent;
+  allowed_canisters : vec principal;
+  proxy_token_refresh_interval : nat64;
+};
+type TransformArgs = record { context : blob; response : HttpResponse };
+type TransformContext = record {
+  function : func (TransformArgs) -> (HttpResponse) query;
+  context : blob;
+};
+type UpgradeArgs = record { proxy_token_refresh_interval : opt nat64 };
+service : (opt ChainArgs) -> {
+  admin_add_canister : (principal) -> (Result);
+  admin_remove_canister : (principal) -> (Result);
+  admin_set_agent : (vec Agent) -> (Result_1);
+  admin_set_managers : (vec principal) -> (Result_1);
+  get_state : () -> (Result_2) query;
+  proxy_http_request : (CanisterHttpRequestArgument) -> (HttpResponse);
+  validate_admin_set_managers : (vec principal) -> (Result_1) query;
+}

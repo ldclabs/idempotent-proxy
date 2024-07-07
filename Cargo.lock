@@ -1054,6 +1054,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "idempotent-proxy-canister"
+version = "0.5.4"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bytes",
+ "candid",
+ "ciborium",
+ "ic-cdk",
+ "ic-cdk-timers",
+ "ic-stable-structures",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sha3",
+ "url",
+]
+
+[[package]]
 name = "idempotent-proxy-server"
 version = "0.5.4"
 dependencies = [

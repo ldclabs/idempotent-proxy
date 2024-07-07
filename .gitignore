@@ -16,5 +16,7 @@ Cargo.lock
 debug
 .wrangler
 .dfx
+.dfx_env
 
 examples/**/.env
+src/**/.env

@@ -9,7 +9,7 @@ The idempotent-proxy is a reverse proxy service written in Rust with built-in id
 
 When multiple requests with the same idempotency key arrive within a specific timeframe, only the first request is forwarded to the target service. The response is cached in Redis (or DurableObject in Cloudflare Worker), and subsequent requests retrieve the cached response, ensuring consistent results.
 
-This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/advanced-features/https-outcalls/https-outcalls-overview) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service.
+This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/references/https-outcalls-how-it-works) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service.
 
 ![Idempotent Proxy](./idempotent-proxy.png)
 
@@ -23,12 +23,13 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 
 ## Packages
 
-| Package                                                                                                            | Description                                                         |
-| :----------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
-| [idempotent-proxy-server](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server)       | Idempotent Proxy implemented in Rust.                               |
-| [idempotent-proxy-cf-worker](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker) | Idempotent Proxy implemented as Cloudflare Worker.                  |
-| [idempotent-proxy-types](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-types)         | Idempotent Proxy types in Rust. Should not be used in ICP canister! |
-| [examples/eth-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister)               | A ICP canister integration with Ethereum JSON-RPC API.              |
+| Package                                                                                                            | Description                                                                   |
+| :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------- |
+| [idempotent-proxy-server](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server)       | Idempotent Proxy implemented in Rust.                                         |
+| [idempotent-proxy-cf-worker](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker) | Idempotent Proxy implemented as Cloudflare Worker.                            |
+| [idempotent-proxy-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-canister)   | Make `idempotent-proxy-server` or `idempotent-proxy-cf-worker` as a canister. |
+| [idempotent-proxy-types](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-types)         | Idempotent Proxy types in Rust. Should not be used in ICP canister!           |
+| [examples/eth-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister)               | A ICP canister integration with Ethereum JSON-RPC API.                        |
 
 ## Who's using?
 

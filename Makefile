@@ -26,8 +26,10 @@ build-linux:
 
 # cargo install ic-wasm
 build-wasm:
+	@cargo build --release --target wasm32-unknown-unknown --package idempotent-proxy-canister
 	@cargo build --release --target wasm32-unknown-unknown --package eth-canister
 
 # cargo install candid-extractor
 build-did:
+	@candid-extractor target/wasm32-unknown-unknown/release/idempotent_proxy_canister.wasm > src/idempotent-proxy-canister/idempotent-proxy-canister.did
 	@candid-extractor target/wasm32-unknown-unknown/release/eth_canister.wasm > examples/eth-canister/eth-canister.did

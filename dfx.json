@@ -1,0 +1,21 @@
+{
+  "canisters": {
+    "idempotent-proxy-canister": {
+      "candid": "src/idempotent-proxy-canister/idempotent-proxy-canister.did",
+      "declarations": {
+        "node_compatibility": true
+      },
+      "package": "idempotent-proxy-canister",
+      "optimize": "cycles",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".dfx_env",
+  "version": 1
+}
