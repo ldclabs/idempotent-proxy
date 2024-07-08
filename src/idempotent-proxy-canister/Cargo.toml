@@ -16,7 +16,6 @@ license.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-async-trait = "0.1"
 bytes = "1.6"
 candid = "0.10"
 ic-cdk = "0.14"

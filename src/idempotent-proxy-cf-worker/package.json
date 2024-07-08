@@ -1,6 +1,6 @@
 {
 	"name": "idempotent-proxy-cf-worker",
-	"version": "0.5.4",
+	"version": "1.0.0",
 	"publish": false,
 	"description": "Reverse proxy server with build-in idempotency support runing as a Cloudflare Worker.",
 	"homepage": "https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker",
