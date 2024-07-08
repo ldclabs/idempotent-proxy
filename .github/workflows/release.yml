@@ -1,4 +1,4 @@
-name: Canisters
+name: Release
 on:
   push:
     branches: [ "main" ]
@@ -8,10 +8,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: Swatinem/rust-cache@v2
-    - uses: dfinity/setup-dfx@main
+    # - uses: dfinity/setup-dfx@main
     - name: Build canisters
       run: |
-        dfx --version
+        rustup target add wasm32-unknown-unknown
         cargo install ic-wasm
         mkdir out
         cargo build --target wasm32-unknown-unknown --release --locked -p idempotent-proxy-canister
