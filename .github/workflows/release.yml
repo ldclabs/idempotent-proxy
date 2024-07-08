@@ -16,13 +16,15 @@ jobs:
         cargo install ic-wasm
         mkdir out
         cargo build --target wasm32-unknown-unknown --release --locked -p idempotent-proxy-canister
-        cp target/wasm32-unknown-unknown/release/idempotent_proxy_canister.wasm out/
-        cp src/idempotent-proxy-canister/idempotent-proxy-canister.did out/idempotent_proxy_canister.did
-        ic-wasm out/idempotent_proxy_canister.wasm -o out/idempotent_proxy_canister.wasm shrink
-        ic-wasm out/idempotent_proxy_canister.wasm -o out/idempotent_proxy_canister.wasm optimize O3 --inline-functions-with-loops
-        gzip out/idempotent_proxy_canister.wasm
-        SHA256="$(sha256sum < "out/idempotent_proxy_canister.wasm.gz" | sed 's/ .*$//g')"
-        echo $SHA256 > "out/idempotent_proxy_canister.wasm.gz.$SHA256.txt"
+        CAN="idempotent_proxy_canister"
+        cp "target/wasm32-unknown-unknown/release/$CAN.wasm" out/
+        cp src/idempotent-proxy-canister/idempotent-proxy-canister.did "out/$CAN.did"
+        ic-wasm "out/$CAN.wasm" -o "out/$CAN.wasm" metadata candid:service -f "out/$CAN.did" -v public
+        ic-wasm "out/$CAN.wasm" -o "out/$CAN.wasm" shrink
+        ic-wasm "out/$CAN.wasm" -o "out/$CAN.wasm" optimize O3 --inline-functions-with-loops
+        gzip "out/$CAN.wasm"
+        SHA256="$(sha256sum < "out/$CAN.wasm.gz" | sed 's/ .*$//g')"
+        echo $SHA256 > "out/$CAN.wasm.gz.$SHA256.txt"
         ls -lah out
     - name: Release
       uses: softprops/action-gh-release@v2
