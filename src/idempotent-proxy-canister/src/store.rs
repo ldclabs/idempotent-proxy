@@ -19,7 +19,7 @@ pub struct State {
     pub proxy_token_refresh_interval: u64, // seconds
     pub agents: Vec<Agent>,
     pub managers: BTreeSet<Principal>,
-    pub allowed_canisters: BTreeSet<Principal>,
+    pub allowed_callers: BTreeSet<Principal>,
 }
 
 impl Storable for State {
@@ -56,8 +56,8 @@ thread_local! {
 pub mod state {
     use super::*;
 
-    pub fn get_agent() -> Agent {
-        STATE.with(|r| r.borrow().agents.first().expect("no agents").clone())
+    pub fn get_agents() -> Vec<Agent> {
+        STATE.with(|r| r.borrow().agents.clone())
     }
 
     pub fn is_manager(caller: &Principal) -> bool {
@@ -65,7 +65,7 @@ pub mod state {
     }
 
     pub fn is_allowed(caller: &Principal) -> bool {
-        STATE.with(|r| r.borrow().allowed_canisters.contains(caller))
+        STATE.with(|r| r.borrow().allowed_callers.contains(caller))
     }
 
     pub fn with<R>(f: impl FnOnce(&State) -> R) -> R {

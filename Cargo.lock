@@ -611,6 +611,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "eth-canister-lite"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "base64",
+ "bytes",
+ "candid",
+ "ciborium",
+ "ic-cdk",
+ "ic-cdk-timers",
+ "ic-stable-structures",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sha3",
+]
+
+[[package]]
 name = "fast-float"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1062,6 +1080,8 @@ dependencies = [
  "bytes",
  "candid",
  "ciborium",
+ "futures",
+ "http",
  "ic-cdk",
  "ic-cdk-timers",
  "ic-stable-structures",
@@ -1069,7 +1089,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "sha3",
- "url",
 ]
 
 [[package]]

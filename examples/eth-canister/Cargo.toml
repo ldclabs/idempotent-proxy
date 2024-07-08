@@ -9,12 +9,6 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
-[profile.release]
-debug = false
-lto = true
-strip = true
-opt-level = 's'
-
 [dependencies]
 async-trait = "0.1"
 bytes = "1.6"

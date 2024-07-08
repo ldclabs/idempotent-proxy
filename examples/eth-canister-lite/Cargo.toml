@@ -1,14 +1,8 @@
 [package]
-name = "idempotent-proxy-canister"
-description = "A ICP canister Make Idempotent Proxy service on-chain."
-repository = "https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-canister"
+name = "eth-canister-lite"
+version = "0.1.0"
+edition = "2021"
 publish = false
-
-version.workspace = true
-edition.workspace = true
-keywords.workspace = true
-categories.workspace = true
-license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,10 +16,9 @@ candid = "0.10"
 ic-cdk = "0.14"
 ic-cdk-timers = "0.8"
 ic-stable-structures = "0.6"
-http = { workspace = true }
+# getrandom = { version = "0.2", features = ["custom"] }
 base64 = { workspace = true }
 ciborium = { workspace = true }
-futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_bytes = { workspace = true }

@@ -11,7 +11,7 @@ When multiple requests with the same idempotency key arrive within a specific ti
 
 This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/docs/current/references/https-outcalls-how-it-works) for [ICP canisters](https://internetcomputer.org/docs/current/developer-docs/smart-contracts/overview/introduction), enabling integration with any Web2 http service.
 
-![Idempotent Proxy](./idempotent-proxy.png)
+![Idempotent Proxy](./idempotent-proxy.webp)
 
 ## Features
 - Reverse proxy with built-in idempotency support
@@ -20,16 +20,18 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 - Response headers filtering
 - Access control using Secp256k1 and Ed25519
 - Deployable with Docker or Cloudflare Worker
+- On-chain Idempotent Proxy service on the ICP
 
 ## Packages
 
-| Package                                                                                                            | Description                                                                   |
-| :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------- |
-| [idempotent-proxy-server](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server)       | Idempotent Proxy implemented in Rust.                                         |
-| [idempotent-proxy-cf-worker](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker) | Idempotent Proxy implemented as Cloudflare Worker.                            |
-| [idempotent-proxy-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-canister)   | Make `idempotent-proxy-server` or `idempotent-proxy-cf-worker` as a canister. |
-| [idempotent-proxy-types](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-types)         | Idempotent Proxy types in Rust. Should not be used in ICP canister!           |
-| [examples/eth-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister)               | A ICP canister integration with Ethereum JSON-RPC API.                        |
+| Package                                                                                                            | Description                                                                             |
+| :----------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+| [idempotent-proxy-server](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server)       | Idempotent Proxy implemented in Rust.                                                   |
+| [idempotent-proxy-cf-worker](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker) | Idempotent Proxy implemented as Cloudflare Worker.                                      |
+| [idempotent-proxy-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-canister)   | A ICP canister Make Idempotent Proxy service on-chain.                                  |
+| [idempotent-proxy-types](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-types)         | Idempotent Proxy types in Rust. Should not be used in ICP canister!                     |
+| [examples/eth-canister](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister)               | A ICP canister integration with Ethereum JSON-RPC API.                                  |
+| [examples/eth-canister-lite](https://github.com/ldclabs/idempotent-proxy/tree/main/examples/eth-canister-lite)     | A ICP canister integration with Ethereum JSON-RPC API through idempotent-proxy-canister |
 
 ## Who's using?
 
@@ -39,11 +41,20 @@ If you plan to use this project and have any questions, feel free to open an iss
 
 ## Usage
 
-### ICP Canister Integration
+### On-chain Idempotent Proxy
 
-Online `eth-canister`: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=hpudd-yqaaa-aaaap-ahnbq-cai
+The `idempotent-proxy-canister` is an ICP smart contract that can connect to 1 to N Idempotent Proxy services deployed by `idempotent-proxy-server` or `idempotent-proxy-cf-worker`. It provides on-chain HTTPS outcalls with idempotency for other smart contracts.
 
-Go to the [examples/eth-canister](./examples/eth-canister) directory for more information.
+![Idempotent Proxy Canister](./idempotent-proxy-canister.webp)
+
+Go to the [idempotent-proxy-canister](./src/idempotent-proxy-canister) directory for more information.
+
+**Online Demo**: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=hpudd-yqaaa-aaaap-ahnbq-cai
+
+### ICP Canister Integration Examples
+
+- [examples/eth-canister-lite](./examples/eth-canister-lite): A ICP canister integration with Ethereum JSON-RPC API through idempotent-proxy-canister.
+- [examples/eth-canister](./examples/eth-canister): A ICP canister integration with Ethereum JSON-RPC API.
 
 ### Run proxy in development mode
 

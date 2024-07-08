@@ -1,9 +1,5 @@
 # Example: `eth-canister`
 
-## Online Demo
-
-eth-canister: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=hpudd-yqaaa-aaaap-ahnbq-cai
-
 ## Running the project locally
 
 If you want to test your project locally, you can use the following commands:

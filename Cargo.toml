@@ -4,8 +4,15 @@ members = [
   "src/idempotent-proxy-server",
   "src/idempotent-proxy-types",
   "examples/eth-canister",
+  "examples/eth-canister-lite",
 ]
 resolver = "2"
+
+[profile.release]
+debug = false
+lto = true
+strip = true
+opt-level = 's'
 
 [workspace.package]
 version = "0.5.4"
@@ -37,6 +44,7 @@ reqwest = { version = "0.12", features = [
   "http2",
 ], default-features = false }
 dotenvy = "0.15"
+futures = "0.3"
 log = "0.4"
 structured-logger = "1"
 http = "1"

@@ -1,5 +1,5 @@
 {
-  "eth-canister": {
+  "idempotent-proxy-canister": {
     "ic": "hpudd-yqaaa-aaaap-ahnbq-cai"
   }
 }

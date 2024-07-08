@@ -1,10 +1,10 @@
 use candid::{CandidType, Nat};
+use http::Uri;
 use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpResponse, TransformArgs,
     TransformContext,
 };
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 #[derive(CandidType, Default, Clone, Deserialize, Serialize)]
 pub struct Agent {
@@ -23,16 +23,21 @@ impl Agent {
         if req.url.starts_with("URL_") {
             req.url = format!("{}/{}", self.endpoint, req.url);
         } else {
-            let url = Url::parse(&req.url)
+            let url: Uri = req
+                .url
+                .parse()
                 .map_err(|err| format!("parse url {} error: {}", req.url, err))?;
             let host = url
-                .host_str()
+                .host()
                 .ok_or_else(|| format!("url host is empty: {}", req.url))?;
             req.headers.push(HttpHeader {
                 name: "x-forwarded-host".to_string(),
                 value: host.to_string(),
             });
-            req.url.clone_from(&self.endpoint);
+
+            let path_query = url.path_and_query().map(|v| v.as_str()).unwrap_or("/");
+
+            req.url = format!("{}{}", self.endpoint, path_query);
         }
 
         if !req.headers.iter().any(|h| h.name == "response-headers") {
@@ -57,23 +62,27 @@ impl Agent {
         Ok(())
     }
 
-    pub async fn call(&self, mut req: CanisterHttpRequestArgument) -> HttpResponse {
+    pub async fn call(
+        &self,
+        mut req: CanisterHttpRequestArgument,
+    ) -> Result<HttpResponse, HttpResponse> {
         if let Err(err) = self.build_request(&mut req) {
-            return HttpResponse {
+            return Ok(HttpResponse {
                 status: Nat::from(400u64),
                 body: err.into_bytes(),
                 headers: vec![],
-            };
+            });
         }
 
         match http_request(req, self.max_cycles as u128).await {
-            Ok((res,)) => res,
-            Err((code, message)) => HttpResponse {
+            Ok((res,)) if res.status <= 500u64 => Ok(res),
+            Ok((res,)) => Err(res),
+            Err((code, message)) => Err(HttpResponse {
                 status: Nat::from(503u64),
                 body: format!("http_request resulted into error. code: {code:?}, error: {message}")
                     .into_bytes(),
                 headers: vec![],
-            },
+            }),
         }
     }
 }

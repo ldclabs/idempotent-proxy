@@ -31,8 +31,8 @@ type State = record {
   proxy_token_public_key : text;
   ecdsa_key_name : text;
   managers : vec principal;
+  allowed_callers : vec principal;
   agents : vec Agent;
-  allowed_canisters : vec principal;
   proxy_token_refresh_interval : nat64;
 };
 type TransformArgs = record { context : blob; response : HttpResponse };
@@ -42,11 +42,13 @@ type TransformContext = record {
 };
 type UpgradeArgs = record { proxy_token_refresh_interval : opt nat64 };
 service : (opt ChainArgs) -> {
-  admin_add_canister : (principal) -> (Result);
-  admin_remove_canister : (principal) -> (Result);
+  admin_add_caller : (principal) -> (Result);
+  admin_remove_caller : (principal) -> (Result);
   admin_set_agent : (vec Agent) -> (Result_1);
   admin_set_managers : (vec principal) -> (Result_1);
   get_state : () -> (Result_2) query;
+  parallel_call_all_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
+  parallel_call_one_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
   proxy_http_request : (CanisterHttpRequestArgument) -> (HttpResponse);
   validate_admin_set_managers : (vec principal) -> (Result_1) query;
 }

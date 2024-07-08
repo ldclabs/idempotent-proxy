@@ -117,6 +117,7 @@ pub async fn proxy(
                 "missing header: x-forwarded-host".to_string(),
             ));
         }
+
         let path_query = req
             .uri()
             .path_and_query()

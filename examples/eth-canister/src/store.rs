@@ -62,15 +62,15 @@ pub mod state {
         STATE.with(|r| r.borrow().rpc_agents.first().expect("no RPCAgent").clone())
     }
 
-    pub fn get_attest_agents() -> Vec<RPCAgent> {
-        STATE.with(|r| {
-            r.borrow()
-                .rpc_agents
-                .split_first()
-                .map(|(_, v)| v.to_vec())
-                .unwrap_or_default()
-        })
-    }
+    // pub fn get_attest_agents() -> Vec<RPCAgent> {
+    //     STATE.with(|r| {
+    //         r.borrow()
+    //             .rpc_agents
+    //             .split_first()
+    //             .map(|(_, v)| v.to_vec())
+    //             .unwrap_or_default()
+    //     })
+    // }
 
     pub fn with<R>(f: impl FnOnce(&State) -> R) -> R {
         STATE.with(|r| f(&r.borrow()))

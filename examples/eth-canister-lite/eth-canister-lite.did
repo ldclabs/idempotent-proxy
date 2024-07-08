@@ -1,0 +1,2 @@
+type Result = variant { Ok : text; Err : text };
+service : { eth_chain_id : () -> (Result); get_best_block : () -> (Result) }
