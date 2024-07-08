@@ -1,7 +1,8 @@
 name: Release
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - 'v*'
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,6 +23,7 @@ jobs:
         gzip out/idempotent_proxy_canister.wasm
         SHA256="$(sha256sum < "out/idempotent_proxy_canister.wasm.gz" | sed 's/ .*$//g')"
         echo $SHA256 > "out/idempotent_proxy_canister.wasm.gz.$SHA256.txt"
+        ls -lah out
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
