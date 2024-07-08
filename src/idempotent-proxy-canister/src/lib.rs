@@ -16,6 +16,7 @@ static ANONYMOUS: Principal = Principal::anonymous();
 
 #[ic_cdk::update(guard = "is_controller")]
 fn admin_set_managers(args: BTreeSet<Principal>) -> Result<(), String> {
+    validate_admin_set_managers(args.clone())?;
     store::state::with_mut(|r| {
         r.managers = args;
     });
@@ -34,14 +35,21 @@ fn validate_admin_set_managers(args: BTreeSet<Principal>) -> Result<(), String> 
 }
 
 #[ic_cdk::update(guard = "is_controller_or_manager")]
-async fn admin_set_agent(agents: Vec<agent::Agent>) -> Result<(), String> {
-    if agents.is_empty() {
-        return Err("agents cannot be empty".to_string());
-    }
+async fn admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
+    validate_admin_set_agents(agents.clone())?;
 
     let (ecdsa_key_name, proxy_token_refresh_interval) =
         store::state::with(|s| (s.ecdsa_key_name.clone(), s.proxy_token_refresh_interval));
     tasks::update_proxy_token(ecdsa_key_name, proxy_token_refresh_interval, agents).await;
+    Ok(())
+}
+
+#[ic_cdk::query]
+fn validate_admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
+    if agents.is_empty() {
+        return Err("agents cannot be empty".to_string());
+    }
+
     Ok(())
 }
 

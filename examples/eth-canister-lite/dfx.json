@@ -4,6 +4,16 @@
       "candid": "eth-canister-lite.did",
       "package": "eth-canister-lite",
       "type": "rust"
+    },
+    "idempotent-proxy-canister": {
+      "candid": "https://github.com/ldclabs/idempotent-proxy/releases/download/v1.0.3/idempotent_proxy_canister.did",
+      "type": "custom",
+      "wasm": "https://github.com/ldclabs/idempotent-proxy/releases/download/v1.0.3/idempotent_proxy_canister.wasm.gz",
+      "metadata": [
+        {
+          "name": "candid:service"
+        }
+      ]
     }
   },
   "defaults": {
