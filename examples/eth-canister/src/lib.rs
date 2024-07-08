@@ -10,7 +10,7 @@ use crate::{init::ChainArgs, jsonrpc::EthereumRPC};
 pub const SECONDS: u64 = 1_000_000_000;
 
 #[ic_cdk::update(guard = "is_controller")]
-async fn admin_set_agent(agents: Vec<agent::RPCAgent>) -> Result<(), String> {
+async fn admin_set_agents(agents: Vec<agent::RPCAgent>) -> Result<(), String> {
     if agents.is_empty() {
         return Err("agents cannot be empty".to_string());
     }

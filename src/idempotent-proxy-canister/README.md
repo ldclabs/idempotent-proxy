@@ -28,14 +28,14 @@ dfx start --background
 dfx deploy idempotent-proxy-canister --argument "(opt variant {Init =
   record {
     ecdsa_key_name = \"dfx_test_key\";
-    proxy_token_refresh_interval = 3600000;
+    proxy_token_refresh_interval = 3600;
   }
 })"
 
 dfx canister call idempotent-proxy-canister get_state '()'
 
 # 3 same agents for testing
-dfx canister call idempotent-proxy-canister admin_set_agent '
+dfx canister call idempotent-proxy-canister admin_set_agents '
   (vec {
     record {
       name = "LDCLabs";

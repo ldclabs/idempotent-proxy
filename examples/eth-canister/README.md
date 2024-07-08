@@ -21,7 +21,7 @@ dfx canister call eth-canister get_state '()'
 # set RPC agent
 # URL_CF_ETH: https://cloudflare-eth.com
 # URL_ANKR_ETH: https://rpc.ankr.com/eth
-dfx canister call eth-canister admin_set_agent '
+dfx canister call eth-canister admin_set_agents '
   (vec {
     record {
       name = "LDCLabs";

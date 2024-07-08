@@ -5,7 +5,7 @@
 If you want to test your project locally, you can use the following commands:
 
 ```bash
-cd examples/eth-canister
+cd examples/eth-canister-lite
 # Starts the replica, running in the background
 dfx start --background
 
