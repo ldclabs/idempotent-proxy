@@ -1,7 +1,8 @@
-name: Publish
+name: Crates
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - 'v*'
 jobs:
   publish:
     runs-on: ubuntu-latest

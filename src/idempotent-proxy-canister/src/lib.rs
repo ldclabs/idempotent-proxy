@@ -140,7 +140,7 @@ async fn parallel_call_all_ok(req: CanisterHttpRequestArgument) -> HttpResponse 
 
 /// Proxy HTTP request by all agents in parallel and return the first (status <= 500) result.
 #[ic_cdk::update]
-async fn parallel_call_one_ok(req: CanisterHttpRequestArgument) -> HttpResponse {
+async fn parallel_call_any_ok(req: CanisterHttpRequestArgument) -> HttpResponse {
     if !store::state::is_allowed(&ic_cdk::caller()) {
         return HttpResponse {
             status: Nat::from(403u64),

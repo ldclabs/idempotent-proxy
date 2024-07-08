@@ -48,7 +48,7 @@ service : (opt ChainArgs) -> {
   admin_set_managers : (vec principal) -> (Result_1);
   get_state : () -> (Result_2) query;
   parallel_call_all_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
-  parallel_call_one_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
+  parallel_call_any_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
   proxy_http_request : (CanisterHttpRequestArgument) -> (HttpResponse);
   validate_admin_set_managers : (vec principal) -> (Result_1) query;
 }

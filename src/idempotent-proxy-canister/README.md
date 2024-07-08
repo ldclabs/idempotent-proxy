@@ -5,7 +5,7 @@ The `idempotent-proxy-canister` is an ICP smart contract that can connect to 1 t
 The `idempotent-proxy-canister` automatically updates the proxy token periodically and offers the following three proxy interfaces to accommodate different business scenarios:
 
 1. `proxy_http_request`: Prioritizes the first agent. If it fails (status code > 500), it attempts the next agent until it succeeds.
-2. `parallel_call_one_ok`: Calls all agents in parallel. If any one succeeds, it returns the successful result; otherwise, it returns the last failed result.
+2. `parallel_call_any_ok`: Calls all agents in parallel. If any one succeeds, it returns the successful result; otherwise, it returns the last failed result.
 3. `parallel_call_all_ok`: Calls all agents in parallel. Only returns a successful result if all agents succeed and the results are identical; otherwise, it returns a 500 error with an array of all results.
 
 Note: If only one agent is configured, all three interfaces are equivalent.
@@ -74,7 +74,7 @@ dfx canister call idempotent-proxy-canister proxy_http_request "(record {
   };
 })"
 
-dfx canister call idempotent-proxy-canister parallel_call_one_ok "(record {
+dfx canister call idempotent-proxy-canister parallel_call_any_ok "(record {
   url = \"https://httpbin.org/get?api-key=abc123\";
   method = variant{ \"get\" };
   max_response_bytes = null;

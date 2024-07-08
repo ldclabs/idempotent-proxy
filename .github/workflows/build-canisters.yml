@@ -1,4 +1,4 @@
-name: CI
+name: Canisters
 on:
   push:
     branches: [ "main" ]
@@ -12,13 +12,17 @@ jobs:
     - name: Build canisters
       run: |
         dfx --version
-        dfx build idempotent-proxy-canister
-        cd target/wasm32-unknown-unknown/release
-        gzip idempotent_proxy_canister.wasm
-        sha256sum idempotent_proxy_canister.wasm.gz > idempotent_proxy_canister.wasm.gz.sha256.txt
+        cargo install ic-wasm
+        mkdir out
+        cargo build --target wasm32-unknown-unknown --release --locked -p idempotent-proxy-canister
+        cp target/wasm32-unknown-unknown/release/idempotent_proxy_canister.wasm out/
+        cp src/idempotent-proxy-canister/idempotent-proxy-canister.did out/idempotent_proxy_canister.did
+        ic-wasm out/idempotent_proxy_canister.wasm -o out/idempotent_proxy_canister.wasm shrink
+        ic-wasm out/idempotent_proxy_canister.wasm -o out/idempotent_proxy_canister.wasm optimize O3 --inline-functions-with-loops
+        gzip out/idempotent_proxy_canister.wasm
+        SHA256="$(sha256sum < "out/idempotent_proxy_canister.wasm.gz" | sed 's/ .*$//g')"
+        echo $SHA256 > "out/idempotent_proxy_canister.wasm.gz.$SHA256.txt"
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        files: |
-          idempotent_proxy_canister.wasm.gz
-          idempotent_proxy_canister.wasm.gz.sha256.txt
+        files: out/*

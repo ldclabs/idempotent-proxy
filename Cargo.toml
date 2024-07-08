@@ -1,8 +1,8 @@
 [workspace]
 members = [
-  "src/idempotent-proxy-canister",
-  "src/idempotent-proxy-server",
   "src/idempotent-proxy-types",
+  "src/idempotent-proxy-server",
+  "src/idempotent-proxy-canister",
   "examples/eth-canister",
   "examples/eth-canister-lite",
 ]

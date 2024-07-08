@@ -34,7 +34,7 @@ pub struct RPCResponse<T> {
 
 impl EthereumRPC {
     pub async fn eth_chain_id(&self, idempotency_key: String) -> Result<String, String> {
-        self.call("parallel_call_one_ok", idempotency_key, "eth_chainId", &[])
+        self.call("proxy_http_request", idempotency_key, "eth_chainId", &[])
             .await
     }
 
@@ -54,7 +54,7 @@ impl EthereumRPC {
         raw_tx: String,
     ) -> Result<String, String> {
         self.call(
-            "proxy_http_request",
+            "parallel_call_any_ok",
             idempotency_key,
             "eth_sendTransaction",
             &[raw_tx.into()],
@@ -66,7 +66,7 @@ impl EthereumRPC {
 
     pub async fn call<T: DeserializeOwned>(
         &self,
-        proxy_method: &str, // "proxy_http_request" | "parallel_call_one_ok" | "parallel_call_all_ok"
+        proxy_method: &str, // "proxy_http_request" | "parallel_call_any_ok" | "parallel_call_all_ok"
         idempotency_key: String,
         method: &str,
         params: &[Value],

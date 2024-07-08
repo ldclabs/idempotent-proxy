@@ -1,4 +1,4 @@
-name: Docker
+name: Dockers
 on:
   push:
     tags:
