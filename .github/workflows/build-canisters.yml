@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+    branches: [ "main" ]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - uses: dfinity/setup-dfx@main
+    - name: Build canisters
+      run: |
+        dfx --version
+        dfx build idempotent-proxy-canister
+        cd target/wasm32-unknown-unknown/release
+        gzip idempotent_proxy_canister.wasm
+        sha256sum idempotent_proxy_canister.wasm.gz > idempotent_proxy_canister.wasm.gz.sha256.txt
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          idempotent_proxy_canister.wasm.gz
+          idempotent_proxy_canister.wasm.gz.sha256.txt
