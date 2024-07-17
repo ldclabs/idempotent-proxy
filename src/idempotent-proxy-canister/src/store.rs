@@ -8,7 +8,7 @@ use ic_stable_structures::{
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, cell::RefCell, collections::BTreeSet};
 
-use crate::{agent::Agent, ecdsa::get_proxy_token_public_key};
+use crate::{agent::Agent, cycles::Calculator, ecdsa::get_proxy_token_public_key};
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
@@ -20,6 +20,14 @@ pub struct State {
     pub agents: Vec<Agent>,
     pub managers: BTreeSet<Principal>,
     pub allowed_callers: BTreeSet<Principal>,
+    #[serde(default)]
+    pub subnet_size: u64,
+    #[serde(default)]
+    pub service_fee: u64, // in cycles
+    #[serde(default)]
+    pub incoming_cycles: u128,
+    #[serde(default)]
+    pub uncollectible_cycles: u128,
 }
 
 impl Storable for State {
@@ -48,7 +56,7 @@ thread_local! {
         StableCell::init(
             MEMORY_MANAGER.with_borrow(|m| m.get(STATE_MEMORY_ID)),
             State::default()
-        ).expect("failed to init STATE store")
+        ).expect("failed to init STATE_STORE store")
     );
 
 }
@@ -58,6 +66,16 @@ pub mod state {
 
     pub fn get_agents() -> Vec<Agent> {
         STATE.with(|r| r.borrow().agents.clone())
+    }
+
+    pub fn cycles_calculator() -> Calculator {
+        STATE.with(|r| {
+            let s = r.borrow();
+            Calculator {
+                subnet_size: s.subnet_size,
+                service_fee: s.service_fee,
+            }
+        })
     }
 
     pub fn is_manager(caller: &Principal) -> bool {
@@ -74,6 +92,24 @@ pub mod state {
 
     pub fn with_mut<R>(f: impl FnOnce(&mut State) -> R) -> R {
         STATE.with(|r| f(&mut r.borrow_mut()))
+    }
+
+    pub fn receive_cycles(cycles: u128, ignore_insufficient: bool) {
+        if cycles == 0 {
+            return;
+        }
+
+        let received = ic_cdk::api::call::msg_cycles_accept128(cycles);
+        with_mut(|r| {
+            r.incoming_cycles = r.incoming_cycles.saturating_add(received);
+            if cycles > received {
+                r.uncollectible_cycles = r.uncollectible_cycles.saturating_add(cycles - received);
+
+                if !ignore_insufficient {
+                    ic_cdk::trap("insufficient cycles");
+                }
+            }
+        });
     }
 
     pub async fn init_ecdsa_public_key() {

@@ -29,10 +29,21 @@ dfx deploy idempotent-proxy-canister --argument "(opt variant {Init =
   record {
     ecdsa_key_name = \"dfx_test_key\";
     proxy_token_refresh_interval = 3600;
+    subnet_size = 1;
+    service_fee = 10_000_000;
   }
 })"
 
 dfx canister call idempotent-proxy-canister get_state '()'
+
+# upgrade
+dfx deploy idempotent-proxy-canister --argument "(opt variant {Upgrade =
+  record {
+    proxy_token_refresh_interval = null;
+    subnet_size = opt 13;
+    service_fee = opt 100_000_000;
+  }
+})"
 
 # 3 same agents for testing
 dfx canister call idempotent-proxy-canister admin_set_agents '

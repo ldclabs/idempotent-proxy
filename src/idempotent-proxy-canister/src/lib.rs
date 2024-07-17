@@ -5,6 +5,7 @@ use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument
 use std::collections::BTreeSet;
 
 mod agent;
+mod cycles;
 mod ecdsa;
 mod init;
 mod store;
@@ -23,7 +24,7 @@ fn admin_set_managers(args: BTreeSet<Principal>) -> Result<(), String> {
     Ok(())
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 fn validate_admin_set_managers(args: BTreeSet<Principal>) -> Result<(), String> {
     if args.is_empty() {
         return Err("managers cannot be empty".to_string());
@@ -44,7 +45,7 @@ async fn admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
     Ok(())
 }
 
-#[ic_cdk::query]
+#[ic_cdk::update]
 fn validate_admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
     if agents.is_empty() {
         return Err("agents cannot be empty".to_string());
@@ -74,6 +75,26 @@ fn get_state() -> Result<store::State, ()> {
     Ok(s)
 }
 
+#[ic_cdk::query]
+async fn proxy_http_request_cost(req: CanisterHttpRequestArgument) -> u128 {
+    let calc = store::state::cycles_calculator();
+    calc.ingress_cost(ic_cdk::api::call::arg_data_raw_size())
+        + calc.http_outcall_request_cost(calc.count_request_bytes(&req), 1)
+        + calc.http_outcall_response_cost(req.max_response_bytes.unwrap_or(1024) as usize, 1)
+}
+
+#[ic_cdk::query]
+async fn parallel_call_cost(req: CanisterHttpRequestArgument) -> u128 {
+    let agents = store::state::get_agents();
+    let calc = store::state::cycles_calculator();
+    calc.ingress_cost(ic_cdk::api::call::arg_data_raw_size())
+        + calc.http_outcall_request_cost(calc.count_request_bytes(&req), agents.len())
+        + calc.http_outcall_response_cost(
+            req.max_response_bytes.unwrap_or(1024) as usize,
+            agents.len(),
+        )
+}
+
 /// Proxy HTTP request by all agents in sequence until one returns an status <= 500 result.
 #[ic_cdk::update]
 async fn proxy_http_request(req: CanisterHttpRequestArgument) -> HttpResponse {
@@ -86,19 +107,35 @@ async fn proxy_http_request(req: CanisterHttpRequestArgument) -> HttpResponse {
     }
 
     let agents = store::state::get_agents();
+    if agents.is_empty() {
+        return HttpResponse {
+            status: Nat::from(503u64),
+            body: "no agents available".as_bytes().to_vec(),
+            headers: vec![],
+        };
+    }
+
+    let calc = store::state::cycles_calculator();
+    store::state::receive_cycles(
+        calc.ingress_cost(ic_cdk::api::call::arg_data_raw_size()),
+        false,
+    );
+
+    let req_size = calc.count_request_bytes(&req);
     let mut last_err: Option<HttpResponse> = None;
     for agent in agents {
+        store::state::receive_cycles(calc.http_outcall_request_cost(req_size, 1), false);
         match agent.call(req.clone()).await {
-            Ok(res) => return res,
+            Ok(res) => {
+                let cycles = calc.http_outcall_response_cost(calc.count_response_bytes(&res), 1);
+                store::state::receive_cycles(cycles, true);
+                return res;
+            }
             Err(res) => last_err = Some(res),
         }
     }
 
-    last_err.unwrap_or_else(|| HttpResponse {
-        status: Nat::from(503u64),
-        body: "no agents available".as_bytes().to_vec(),
-        headers: vec![],
-    })
+    last_err.unwrap()
 }
 
 /// Proxy HTTP request by all agents in parallel and return the result if all are the same,
@@ -114,9 +151,21 @@ async fn parallel_call_all_ok(req: CanisterHttpRequestArgument) -> HttpResponse 
     }
 
     let agents = store::state::get_agents();
+    if agents.is_empty() {
+        return HttpResponse {
+            status: Nat::from(503u64),
+            body: "no agents available".as_bytes().to_vec(),
+            headers: vec![],
+        };
+    }
+
+    let calc = store::state::cycles_calculator();
+    let cycles = calc.ingress_cost(ic_cdk::api::call::arg_data_raw_size())
+        + calc.http_outcall_request_cost(calc.count_request_bytes(&req), agents.len());
+    store::state::receive_cycles(cycles, false);
+
     let results =
         futures::future::try_join_all(agents.iter().map(|agent| agent.call(req.clone()))).await;
-
     match results {
         Err(res) => res,
         Ok(res) => {
@@ -126,6 +175,10 @@ async fn parallel_call_all_ok(req: CanisterHttpRequestArgument) -> HttpResponse 
                 body: "no agents available".as_bytes().to_vec(),
                 headers: vec![],
             });
+
+            let cycles = calc
+                .http_outcall_response_cost(calc.count_response_bytes(&base_result), agents.len());
+            store::state::receive_cycles(cycles, true);
 
             let mut inconsistent_results: Vec<_> =
                 results.filter(|result| result != &base_result).collect();
@@ -166,11 +219,21 @@ async fn parallel_call_any_ok(req: CanisterHttpRequestArgument) -> HttpResponse 
         };
     }
 
+    let calc = store::state::cycles_calculator();
+    let cycles = calc.ingress_cost(ic_cdk::api::call::arg_data_raw_size())
+        + calc.http_outcall_request_cost(calc.count_request_bytes(&req), agents.len());
+    store::state::receive_cycles(cycles, false);
+
     let result =
         futures::future::select_ok(agents.iter().map(|agent| agent.call(req.clone()).boxed()))
             .await;
     match result {
-        Ok((res, _)) => res,
+        Ok((res, _)) => {
+            let cycles =
+                calc.http_outcall_response_cost(calc.count_response_bytes(&res), agents.len());
+            store::state::receive_cycles(cycles, true);
+            res
+        }
         Err(res) => res,
     }
 }

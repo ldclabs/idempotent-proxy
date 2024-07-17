@@ -22,9 +22,9 @@ This service can be used to proxy [HTTPS outcalls](https://internetcomputer.org/
 - Deployable with Docker or Cloudflare Worker
 - On-chain Idempotent Proxy service on the ICP
 
-## Packages
+## Libraries
 
-| Package                                                                                                            | Description                                                                             |
+| Library                                                                                                            | Description                                                                             |
 | :----------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
 | [idempotent-proxy-server](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-server)       | Idempotent Proxy implemented in Rust.                                                   |
 | [idempotent-proxy-cf-worker](https://github.com/ldclabs/idempotent-proxy/tree/main/src/idempotent-proxy-cf-worker) | Idempotent Proxy implemented as Cloudflare Worker.                                      |

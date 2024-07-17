@@ -21,26 +21,36 @@ type HttpResponse = record {
   headers : vec HttpHeader;
 };
 type InitArgs = record {
+  service_fee : nat64;
   ecdsa_key_name : text;
   proxy_token_refresh_interval : nat64;
+  subnet_size : nat64;
 };
 type Result = variant { Ok : bool; Err : text };
 type Result_1 = variant { Ok; Err : text };
 type Result_2 = variant { Ok : State; Err };
 type State = record {
   proxy_token_public_key : text;
+  service_fee : nat64;
   ecdsa_key_name : text;
   managers : vec principal;
   allowed_callers : vec principal;
+  uncollectible_cycles : nat;
   agents : vec Agent;
+  incoming_cycles : nat;
   proxy_token_refresh_interval : nat64;
+  subnet_size : nat64;
 };
 type TransformArgs = record { context : blob; response : HttpResponse };
 type TransformContext = record {
   function : func (TransformArgs) -> (HttpResponse) query;
   context : blob;
 };
-type UpgradeArgs = record { proxy_token_refresh_interval : opt nat64 };
+type UpgradeArgs = record {
+  service_fee : opt nat64;
+  proxy_token_refresh_interval : opt nat64;
+  subnet_size : opt nat64;
+};
 service : (opt ChainArgs) -> {
   admin_add_caller : (principal) -> (Result);
   admin_remove_caller : (principal) -> (Result);
@@ -49,7 +59,9 @@ service : (opt ChainArgs) -> {
   get_state : () -> (Result_2) query;
   parallel_call_all_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
   parallel_call_any_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
+  parallel_call_cost : (CanisterHttpRequestArgument) -> (nat) query;
   proxy_http_request : (CanisterHttpRequestArgument) -> (HttpResponse);
-  validate_admin_set_agents : (vec Agent) -> (Result_1) query;
-  validate_admin_set_managers : (vec principal) -> (Result_1) query;
+  proxy_http_request_cost : (CanisterHttpRequestArgument) -> (nat) query;
+  validate_admin_set_agents : (vec Agent) -> (Result_1);
+  validate_admin_set_managers : (vec principal) -> (Result_1);
 }

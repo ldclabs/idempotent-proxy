@@ -130,14 +130,19 @@ impl EthereumRPC {
             transform: None,
         };
 
-        let (res,): (HttpResponse,) = ic_cdk::call(self.proxy, proxy_method, (request,))
-            .await
-            .map_err(|(code, msg)| {
-                format!(
-                    "failed to call {} on {:?}, code: {}, message: {}",
-                    proxy_method, &self.proxy, code as u32, msg
-                )
-            })?;
+        let (res,): (HttpResponse,) = ic_cdk::api::call::call_with_payment128(
+            self.proxy,
+            proxy_method,
+            (request,),
+            1_000_000_000, // max cycles, unspent cycles will be refunded
+        )
+        .await
+        .map_err(|(code, msg)| {
+            format!(
+                "failed to call {} on {:?}, code: {}, message: {}",
+                proxy_method, &self.proxy, code as u32, msg
+            )
+        })?;
 
         if res.status >= 200u64 && res.status < 300u64 {
             Ok(res.body)

@@ -14,11 +14,15 @@ pub enum ChainArgs {
 pub struct InitArgs {
     ecdsa_key_name: String, // Use "dfx_test_key" for local replica and "test_key_1" for a testing key for testnet and mainnet
     proxy_token_refresh_interval: u64, // seconds
+    subnet_size: u64,       // set to 0 to disable receiving cycles
+    service_fee: u64,       // in cycles
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct UpgradeArgs {
     proxy_token_refresh_interval: Option<u64>, // seconds
+    subnet_size: Option<u64>,
+    service_fee: Option<u64>, // in cycles
 }
 
 #[ic_cdk::init]
@@ -27,10 +31,16 @@ fn init(args: Option<ChainArgs>) {
         ChainArgs::Init(args) => {
             store::state::with_mut(|s| {
                 s.ecdsa_key_name = args.ecdsa_key_name;
+                s.subnet_size = args.subnet_size;
                 s.proxy_token_refresh_interval = if args.proxy_token_refresh_interval >= 10 {
                     args.proxy_token_refresh_interval
                 } else {
                     3600
+                };
+                s.service_fee = if args.service_fee > 0 {
+                    args.service_fee
+                } else {
+                    100_000_000
                 };
             });
         }
@@ -72,6 +82,12 @@ fn post_upgrade(args: Option<ChainArgs>) {
                     }
 
                     s.proxy_token_refresh_interval = proxy_token_refresh_interval;
+                }
+                if let Some(subnet_size) = args.subnet_size {
+                    s.subnet_size = subnet_size;
+                }
+                if let Some(service_fee) = args.service_fee {
+                    s.service_fee = service_fee;
                 }
             });
         }
