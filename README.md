@@ -64,6 +64,14 @@ docker run --name redis -d -p 6379:6379 redis:latest
 cargo run -p idempotent-proxy-server
 ```
 
+### Building enclave image
+
+https://docs.marlin.org/user-guides/oyster/instances/quickstart/build
+
+```bash
+docker build -f enclave/arm64.Dockerfile -t enclave:latest .
+```
+
 ### Running as Cloudflare Worker
 
 Idempotent Proxy can be running as a Cloudflare Worker. In order to use Durable Objects, you must switch to a paid plan.
