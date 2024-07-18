@@ -14,8 +14,8 @@ use std::{
 use structured_logger::{async_json::new_writer, get_env_level, Builder};
 use tokio::signal;
 
+mod cache;
 mod handler;
-mod redis;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -32,6 +32,10 @@ async fn main() {
         .map(|n| n.parse().unwrap())
         .unwrap_or(10000u64)
         .max(1000u64);
+    let poll_interval: u64 = std::env::var("POLL_INTERVAL")
+        .map(|n| n.parse().unwrap())
+        .unwrap_or(100u64)
+        .max(10u64);
 
     let http_client = ClientBuilder::new()
         .http2_keep_alive_interval(Some(Duration::from_secs(25)))
@@ -43,16 +47,13 @@ async fn main() {
         .build()
         .unwrap();
 
-    let redis_client = redis::new(
-        &std::env::var("REDIS_URL").expect("REDIS_URL not found"),
-        std::env::var("POLL_INTERVAL")
-            .map(|n| n.parse().unwrap())
-            .unwrap_or(100u64)
-            .max(10u64),
-        req_timeout,
-    )
-    .await
-    .unwrap();
+    let cacher_entry = match std::env::var("REDIS_URL") {
+        Ok(url) => {
+            let redis_client = cache::RedisClient::new(&url).await.unwrap();
+            cache::CacherEntry::Redis(redis_client)
+        }
+        Err(_) => cache::CacherEntry::Memory(cache::MemoryCacher::default()),
+    };
 
     let agents: BTreeSet<String> = std::env::var("ALLOW_AGENTS")
         .unwrap_or_default()
@@ -106,7 +107,11 @@ async fn main() {
         .route("/*any", routing::any(handler::proxy))
         .with_state(handler::AppState {
             http_client: Arc::new(http_client),
-            cacher: Arc::new(redis_client),
+            cacher: Arc::new(cache::HybridCacher::new(
+                poll_interval,
+                req_timeout,
+                cacher_entry,
+            )),
             agents: Arc::new(agents),
             url_vars: Arc::new(url_vars),
             header_vars: Arc::new(header_vars),

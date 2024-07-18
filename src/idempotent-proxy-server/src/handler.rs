@@ -5,6 +5,7 @@ use axum::{
 };
 use base64::{engine::general_purpose, Engine};
 use http::{header::AsHeaderName, HeaderMap, HeaderValue, StatusCode};
+use idempotent_proxy_types::*;
 use k256::ecdsa;
 use reqwest::Client;
 use std::{
@@ -12,15 +13,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::redis::RedisClient;
-use idempotent_proxy_types::auth;
-use idempotent_proxy_types::cache::{Cacher, ResponseData};
-use idempotent_proxy_types::*;
+use crate::cache::{Cacher, HybridCacher, ResponseData};
 
 #[derive(Clone)]
 pub struct AppState {
     pub http_client: Arc<Client>,
-    pub cacher: Arc<RedisClient>,
+    pub cacher: Arc<HybridCacher>,
     pub agents: Arc<BTreeSet<String>>,
     pub url_vars: Arc<HashMap<String, String>>,
     pub header_vars: Arc<HashMap<String, HeaderValue>>,

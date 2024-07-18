@@ -1,7 +1,6 @@
 use http::header::HeaderName;
 
 pub mod auth;
-pub mod cache;
 
 pub static HEADER_PROXY_AUTHORIZATION: HeaderName = HeaderName::from_static("proxy-authorization");
 pub static HEADER_X_FORWARDED_FOR: HeaderName = HeaderName::from_static("x-forwarded-for");

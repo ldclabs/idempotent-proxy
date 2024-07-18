@@ -8,10 +8,36 @@ use http::{
     header::{HeaderMap, HeaderName, HeaderValue},
     StatusCode,
 };
+use idempotent_proxy_types::err_string;
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
-use crate::err_string;
+mod memory;
+mod redis;
+
+pub use memory::*;
+pub use redis::*;
+
+pub struct HybridCacher {
+    pub poll_interval: u64,
+    pub cache_ttl: u64,
+    cache: CacherEntry,
+}
+
+impl HybridCacher {
+    pub fn new(poll_interval: u64, cache_ttl: u64, cache: CacherEntry) -> Self {
+        Self {
+            poll_interval,
+            cache_ttl,
+            cache,
+        }
+    }
+}
+
+pub enum CacherEntry {
+    Memory(MemoryCacher),
+    Redis(RedisClient),
+}
 
 #[async_trait]
 pub trait Cacher {
@@ -24,6 +50,42 @@ pub trait Cacher {
     ) -> Result<Vec<u8>, String>;
     async fn set(&self, key: &str, val: Vec<u8>, ttl_ms: u64) -> Result<bool, String>;
     async fn del(&self, key: &str) -> Result<(), String>;
+}
+
+#[async_trait]
+impl Cacher for HybridCacher {
+    async fn obtain(&self, key: &str, ttl: u64) -> Result<bool, String> {
+        match &self.cache {
+            CacherEntry::Memory(cacher) => cacher.obtain(key, ttl).await,
+            CacherEntry::Redis(cacher) => cacher.obtain(key, ttl).await,
+        }
+    }
+
+    async fn polling_get(
+        &self,
+        key: &str,
+        poll_interval: u64,
+        counter: u64,
+    ) -> Result<Vec<u8>, String> {
+        match &self.cache {
+            CacherEntry::Memory(cacher) => cacher.polling_get(key, poll_interval, counter).await,
+            CacherEntry::Redis(cacher) => cacher.polling_get(key, poll_interval, counter).await,
+        }
+    }
+
+    async fn set(&self, key: &str, val: Vec<u8>, ttl: u64) -> Result<bool, String> {
+        match &self.cache {
+            CacherEntry::Memory(cacher) => cacher.set(key, val, ttl).await,
+            CacherEntry::Redis(cacher) => cacher.set(key, val, ttl).await,
+        }
+    }
+
+    async fn del(&self, key: &str) -> Result<(), String> {
+        match &self.cache {
+            CacherEntry::Memory(cacher) => cacher.del(key).await,
+            CacherEntry::Redis(cacher) => cacher.del(key).await,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
