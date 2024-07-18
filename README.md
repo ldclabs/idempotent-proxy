@@ -80,8 +80,8 @@ In a new terminal, run
 cd /mnt/my-server
 sudo docker exec -it nitro-cli sh
 # or docker pull enclave image
-docker build -f enclave/arm64.Dockerfile -t enclave_arm64:latest .
-nitro-cli build-enclave --docker-uri enclave_arm64:latest --output-file enclave_arm64.eif
+docker build -f enclave/amd64.Dockerfile -t enclave_amd64:latest .
+nitro-cli build-enclave --docker-uri enclave_amd64:latest --output-file enclave_amd64.eif
 ```
 
 ### Running as Cloudflare Worker

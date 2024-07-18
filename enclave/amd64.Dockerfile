@@ -53,7 +53,8 @@ COPY enclave/setup.sh ./
 RUN chmod +x setup.sh
 
 # your custom setup goes here
-COPY --from=builder /src/.env ./.env
+# COPY enclave/.env ./.env
+COPY enclave/.env ../.env
 COPY --from=builder /src/target/release/idempotent-proxy-server ./idempotent-proxy-server
 
 # entry point
