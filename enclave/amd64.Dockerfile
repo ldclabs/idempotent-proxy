@@ -1,5 +1,5 @@
 # base image
-FROM --platform=arm64 rust:slim-bookworm AS builder
+FROM --platform=amd64 rust:slim-bookworm AS builder
 
 RUN apt-get update \
     && apt-get install -y gcc g++ libc6-dev pkg-config libssl-dev
