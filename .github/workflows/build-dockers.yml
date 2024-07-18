@@ -21,3 +21,11 @@ jobs:
         LATEST_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
         TAGS="-t ${IMAGE_TAG} -t ${LATEST_TAG}"
         docker buildx build --platform='linux/amd64,linux/arm64' $TAGS --push .
+        IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}_enclave_arm64:${{ github.ref_name }}"
+        LATEST_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}_enclave_arm64:latest"
+        TAGS="-t ${IMAGE_TAG} -t ${LATEST_TAG}"
+        docker build -f enclave/arm64.Dockerfile $TAGS --push .
+        IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}_enclave_amd64:${{ github.ref_name }}"
+        LATEST_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}_enclave_amd64:latest"
+        TAGS="-t ${IMAGE_TAG} -t ${LATEST_TAG}"
+        docker build -f enclave/amd64.Dockerfile $TAGS --push .

@@ -68,8 +68,20 @@ cargo run -p idempotent-proxy-server
 
 https://docs.marlin.org/user-guides/oyster/instances/quickstart/build
 
+The following steps should be run in AWS Nitro-based instances.
+
+Spin up a new Docker container based on our nitro-cli image and mount the current directory using:
 ```bash
-docker build -f enclave/arm64.Dockerfile -t enclave:latest .
+sudo docker run --rm --privileged --name nitro-cli -v `pwd`:/mnt/my-server marlinorg/nitro-cli
+```
+
+In a new terminal, run
+```bash
+cd /mnt/my-server
+sudo docker exec -it nitro-cli sh
+# or docker pull enclave image
+docker build -f enclave/arm64.Dockerfile -t enclave_arm64:latest .
+nitro-cli build-enclave --docker-uri enclave_arm64:latest --output-file enclave_arm64.eif
 ```
 
 ### Running as Cloudflare Worker

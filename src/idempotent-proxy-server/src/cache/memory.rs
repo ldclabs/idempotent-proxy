@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use idempotent_proxy_types::unix_ms;
 use std::{
     collections::{
         hash_map::{Entry, HashMap},
@@ -6,7 +7,6 @@ use std::{
     },
     sync::Arc,
 };
-use structured_logger::unix_ms;
 use tokio::{
     sync::RwLock,
     time::{sleep, Duration},
@@ -39,7 +39,6 @@ impl MemoryCacher {
 
                 kv.remove(&key);
             }
-            ()
         })
     }
 }

@@ -1,4 +1,5 @@
 use http::header::HeaderName;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod auth;
 
@@ -12,4 +13,12 @@ pub static HEADER_RESPONSE_HEADERS: HeaderName = HeaderName::from_static("respon
 
 pub fn err_string(err: impl std::fmt::Display) -> String {
     err.to_string()
+}
+
+/// Returns the current unix timestamp in milliseconds.
+pub fn unix_ms() -> u64 {
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before Unix epoch");
+    ts.as_millis() as u64
 }

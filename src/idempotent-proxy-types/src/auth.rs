@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 use sha3::{Digest, Sha3_256};
 
+use crate::unix_ms;
+
 const PERMITTED_DRIFT: u64 = 10; // seconds
 
 // Token format: [expire_at in seconds, agent, signature]
@@ -27,7 +29,7 @@ pub fn ed25519_sign(key: &ed25519_dalek::SigningKey, expire_at: u64, agent: Stri
 
 pub fn ed25519_verify(keys: &[ed25519_dalek::VerifyingKey], data: &[u8]) -> Result<Token, String> {
     let token: Token = from_reader(data).map_err(|_err| "failed to decode CBOR data")?;
-    if token.0 + PERMITTED_DRIFT < chrono::Utc::now().timestamp() as u64 {
+    if token.0 + PERMITTED_DRIFT < unix_ms() / 1000 {
         return Err("token expired".to_string());
     }
     let sig = ed25519_dalek::Signature::from_slice(token.2.as_slice())
@@ -60,7 +62,7 @@ pub fn ecdsa_sign(key: &ecdsa::SigningKey, expire_at: u64, agent: String) -> Vec
 // Secp256k1
 pub fn ecdsa_verify(keys: &[ecdsa::VerifyingKey], data: &[u8]) -> Result<Token, String> {
     let token: Token = from_reader(data).map_err(|_err| "failed to decode CBOR data")?;
-    if token.0 + PERMITTED_DRIFT < chrono::Utc::now().timestamp() as u64 {
+    if token.0 + PERMITTED_DRIFT < unix_ms() / 1000 {
         return Err("token expired".to_string());
     }
     let sig = ecdsa::Signature::try_from(token.2.as_slice())
@@ -98,7 +100,7 @@ mod test {
         let signing_key: ed25519_dalek::SigningKey =
             ed25519_dalek::SigningKey::from_bytes(&secret_key);
         let agent = "alice".to_string();
-        let expire_at = chrono::Utc::now().timestamp() as u64 + 3600;
+        let expire_at = unix_ms() / 1000 + 3600;
         let signed = super::ed25519_sign(&signing_key, expire_at, agent.clone());
         let token = super::ed25519_verify(&[signing_key.verifying_key()], &signed).unwrap();
         assert_eq!(token.0, expire_at);
@@ -110,7 +112,7 @@ mod test {
     fn test_secp256k1_token() {
         let signing_key = ecdsa::SigningKey::random(&mut OsRng);
         let agent = "alice".to_string();
-        let expire_at = chrono::Utc::now().timestamp() as u64 + 3600;
+        let expire_at = unix_ms() / 1000 + 3600;
         let signed = super::ecdsa_sign(&signing_key, expire_at, agent.clone());
         let token =
             super::ecdsa_verify(&[ecdsa::VerifyingKey::from(&signing_key)], &signed).unwrap();
