@@ -123,12 +123,17 @@ impl ResponseData {
 
         for (k, v) in headers.iter() {
             if let Ok(v) = v.to_str() {
-                let k = k.as_str();
-                if k == "content-type" {
-                    self.mime = v.to_string();
-                } else if k != "content-length" && (filtering.is_empty() || filtering.contains(&k))
-                {
-                    self.headers.push((k.to_string(), v.to_string()));
+                match k.as_str() {
+                    "content-type" => {
+                        self.mime = v.to_string();
+                    }
+                    "content-length" | "transfer-encoding" => {
+                        continue;
+                    }
+                    k if filtering.is_empty() || filtering.contains(&k) => {
+                        self.headers.push((k.to_string(), v.to_string()));
+                    }
+                    _ => {}
                 }
             }
         }

@@ -83,7 +83,7 @@ export class ResponseData {
       if (key == 'content-type') {
         this.mime = value
       } else if (
-        key != 'content-length' &&
+        key != 'content-length' && key != 'transfer-encoding' &&
         (fi.length == 0 || fi.includes(key))
       ) {
         this.headers.push([key, value])

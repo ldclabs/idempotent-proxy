@@ -1,7 +1,7 @@
 use axum::{
     body::to_bytes,
     extract::{Request, State},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
 };
 use base64::{engine::general_purpose, Engine};
 use http::{header::AsHeaderName, HeaderMap, HeaderValue, StatusCode};
@@ -72,7 +72,7 @@ impl AppState {
 pub async fn proxy(
     State(app): State<AppState>,
     req: Request,
-) -> Result<Response, (StatusCode, String)> {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Access control
     let agent = if !app.ecdsa_pub_keys.is_empty() || !app.ed25519_pub_keys.is_empty() {
         let token = extract_header(req.headers(), &HEADER_PROXY_AUTHORIZATION, || {
@@ -161,7 +161,7 @@ pub async fn proxy(
                     agent = agent,
                     idempotency_key = idempotency_key;
                     "");
-        return Ok(res.into_response());
+        return Ok(res);
     }
 
     let res = {
@@ -201,7 +201,7 @@ pub async fn proxy(
                 .await
                 .map_err(bad_gateway)?;
 
-            Ok(rd.into_response())
+            Ok(rd)
         } else {
             Err((status, String::from_utf8_lossy(&res_body).to_string()))
         }
