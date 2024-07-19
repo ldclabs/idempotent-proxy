@@ -60,23 +60,25 @@ Go to the [idempotent-proxy-canister](./src/idempotent-proxy-canister) directory
 
 Run proxy:
 ```bash
-docker run --name redis -d -p 6379:6379 redis:latest
 cargo run -p idempotent-proxy-server
 ```
 
-### Building enclave image for Marlin Oyster
-
-The following steps should be run in AWS Nitro-based instances.
-
-#### Use Nitro Enclaves CLI on AWS Nitro-based instances:
-
-https://docs.aws.amazon.com/enclaves/latest/user/getting-started.html
-
+Make a request:
 ```bash
-sudo nitro-cli build-enclave --docker-uri ghcr.io/ldclabs/idempotent-proxy_enclave_amd64:latest --output-file idempotent-proxy_enclave_amd64.eif
+curl -v -X POST \
+  --url http://YOUR_HOST/eth \
+  --header 'content-type: application/json' \
+  --header 'x-forwarded-host: rpc.ankr.com' \
+  --header 'idempotency-key: key_001' \
+  --data '{
+	  "id": 1,
+    "jsonrpc": "2.0",
+    "method": "eth_getBlockByNumber",
+    "params": ["latest", false]
+}'
 ```
 
-#### Or spin up a new Docker container based on nitro-cli image:
+### Building enclave image for Marlin Oyster
 
 https://docs.marlin.org/user-guides/oyster/instances/quickstart/build
 
@@ -88,10 +90,15 @@ In a new terminal, run:
 ```bash
 cd /mnt/my-server
 sudo docker exec -it nitro-cli sh
-docker build -f enclave/amd64.Dockerfile -t enclave_amd64:latest .
-nitro-cli build-enclave --docker-uri enclave_amd64:latest --output-file enclave_amd64.eif
-# Or: nitro-cli build-enclave --docker-uri ghcr.io/ldclabs/idempotent-proxy_enclave_amd64:latest --output-file idempotent-proxy_enclave_amd64.eif
+nitro-cli build-enclave --docker-uri ghcr.io/ldclabs/idempotent-proxy_enclave_amd64:latest --output-file idempotent-proxy_enclave_amd64.eif
 ```
+
+The image URL to deploy on Marlin Oyster:
+```text
+https://pub-eea759c16b114748bd3b170eadbb2c30.r2.dev/idempotent-proxy_enclave_amd64.eif
+```
+
+Go to the [idempotent-proxy-server](./src/idempotent-proxy-server) directory for more information.
 
 ### Running as Cloudflare Worker
 
