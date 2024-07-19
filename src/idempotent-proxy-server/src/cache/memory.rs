@@ -59,13 +59,13 @@ impl Cacher for MemoryCacher {
                 pq.remove(&PriorityKey(*expire_at, key.to_string()));
 
                 *expire_at = now + ttl;
-                *value = vec![0];
+                *value = vec![];
                 pq.insert(PriorityKey(*expire_at, key.to_string()));
                 Ok(true)
             }
             Entry::Vacant(entry) => {
                 let expire_at = now + ttl;
-                entry.insert((expire_at, vec![0]));
+                entry.insert((expire_at, vec![]));
                 self.priority_queue
                     .write()
                     .await
@@ -88,13 +88,10 @@ impl Cacher for MemoryCacher {
                 None => return Err("not obtained".to_string()),
                 Some((expire_at, value)) => {
                     if *expire_at <= unix_ms() {
-                        drop(kv);
-                        self.kv.write().await.remove(key);
                         self.clean_expired_values();
-                        return Err("value expired".to_string());
                     }
 
-                    if value.len() > 1 {
+                    if value.len() > 0 {
                         return Ok(value.clone());
                     }
                 }
@@ -176,7 +173,7 @@ mod test {
         );
 
         sleep(Duration::from_millis(200)).await;
-        assert!(mc.polling_get("key1", 10, 2).await.is_err());
+        assert!(mc.polling_get("key1", 10, 2).await.is_ok());
         assert!(mc.set("key1", vec![1, 2, 3, 4], 100).await.is_err());
         assert!(mc.del("key1").await.is_ok());
 

@@ -140,7 +140,7 @@ pub async fn proxy(
         .cacher
         .obtain(&idempotency_key, app.cacher.cache_ttl)
         .await
-        .map_err(err_response)?;
+        .map_err(bad_gateway)?;
     if !lock {
         let data = app
             .cacher
@@ -150,9 +150,9 @@ pub async fn proxy(
                 app.cacher.cache_ttl / app.cacher.poll_interval,
             )
             .await
-            .map_err(err_response)?;
+            .map_err(bad_gateway)?;
 
-        let res = ResponseData::try_from(&data[..]).map_err(err_response)?;
+        let res = ResponseData::try_from(&data[..]).map_err(bad_gateway)?;
         log::info!(target: "handler",
                     action = "cachehit",
                     method = method,
@@ -183,23 +183,23 @@ pub async fn proxy(
             *rreq.body_mut() = Some(reqwest::Body::from(body));
         }
 
-        let rres = app.http_client.execute(rreq).await.map_err(err_response)?;
+        let rres = app.http_client.execute(rreq).await.map_err(bad_gateway)?;
         let status = rres.status();
         let headers = rres.headers().to_owned();
-        let res_body = rres.bytes().await.map_err(err_response)?;
+        let res_body = rres.bytes().await.map_err(bad_gateway)?;
 
         // If the HTTP status code is 500 or below, it's considered a server response and should be cached; any exceptions should be handled by the client. Otherwise, it's considered a non-response from the server and should not be cached.
         if status >= StatusCode::OK && status <= StatusCode::INTERNAL_SERVER_ERROR {
             let mut rd = ResponseData::new(status.as_u16());
             rd.with_headers(&headers, &response_headers);
-            rd.with_body(&res_body, &json_mask).map_err(err_response)?;
-            let data = rd.to_bytes().map_err(err_response)?;
+            rd.with_body(&res_body, &json_mask).map_err(bad_gateway)?;
+            let data = rd.to_bytes().map_err(bad_gateway)?;
 
             let _ = app
                 .cacher
                 .set(&idempotency_key, data, app.cacher.cache_ttl)
                 .await
-                .map_err(err_response)?;
+                .map_err(bad_gateway)?;
 
             Ok(rd.into_response())
         } else {
@@ -234,8 +234,8 @@ pub async fn proxy(
     }
 }
 
-fn err_response(err: impl std::fmt::Display) -> (StatusCode, String) {
-    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+fn bad_gateway(err: impl std::fmt::Display) -> (StatusCode, String) {
+    (StatusCode::BAD_GATEWAY, err.to_string())
 }
 
 fn extract_header<K>(hm: &HeaderMap, key: K, or: impl FnOnce() -> String) -> String
