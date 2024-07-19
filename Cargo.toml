@@ -15,7 +15,7 @@ strip = true
 opt-level = 's'
 
 [workspace.package]
-version = "1.1.4"
+version = "1.1.5"
 edition = "2021"
 repository = "https://github.com/ldclabs/idempotent-proxy"
 keywords = ["idempotent", "reverse", "proxy", "icp"]
@@ -40,9 +40,8 @@ reqwest = { version = "0.12", features = [
   "json",
   "gzip",
   "stream",
-  "trust-dns",
   "http2",
-  "hickory-dns",
+  # "hickory-dns",
 ], default-features = true }
 dotenvy = "0.15"
 futures = "0.3"
