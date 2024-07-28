@@ -69,7 +69,9 @@ dfx canister call idempotent-proxy-canister admin_set_agents '
 
 MYID=$(dfx identity get-principal)
 
-dfx canister call idempotent-proxy-canister admin_add_caller "(principal \"$MYID\")"
+dfx canister call idempotent-proxy-canister admin_add_managers "(vec {principal \"$MYID\"})"
+
+dfx canister call idempotent-proxy-canister admin_add_callers "(vec {principal \"$MYID\"})"
 
 dfx canister call idempotent-proxy-canister get_state '()'
 
