@@ -1,22 +1,17 @@
 use std::collections::BTreeMap;
 
-use crate::{agent::Agent, ecdsa, store};
+use crate::{agent::Agent, store};
 
 const SECONDS: u64 = 1_000_000_000;
 
 pub async fn refresh_proxy_token() {
-    let (ecdsa_key_name, proxy_token_refresh_interval, agents) = store::state::with(|s| {
-        (
-            s.ecdsa_key_name.clone(),
-            s.proxy_token_refresh_interval,
-            s.agents.clone(),
-        )
-    });
-    update_proxy_token(ecdsa_key_name, proxy_token_refresh_interval, agents).await;
+    let (signer, proxy_token_refresh_interval, agents) =
+        store::state::with(|s| (s.signer(), s.proxy_token_refresh_interval, s.agents.clone()));
+    update_proxy_token(signer, proxy_token_refresh_interval, agents).await;
 }
 
 pub async fn update_proxy_token(
-    ecdsa_key_name: String,
+    signer: store::Signer,
     proxy_token_refresh_interval: u64,
     mut agents: Vec<Agent>,
 ) {
@@ -31,13 +26,13 @@ pub async fn update_proxy_token(
             continue;
         }
 
-        let token = ecdsa::sign_proxy_token(
-            &ecdsa_key_name,
-            (ic_cdk::api::time() / SECONDS) + proxy_token_refresh_interval + 120,
-            &agent.name,
-        )
-        .await
-        .expect("failed to sign proxy token");
+        let token = signer
+            .sign_proxy_token(
+                (ic_cdk::api::time() / SECONDS) + proxy_token_refresh_interval + 120,
+                &agent.name,
+            )
+            .await
+            .expect("failed to sign proxy token");
         tokens.insert(agent.name.clone(), token.clone());
         agent.proxy_token = Some(token);
     }

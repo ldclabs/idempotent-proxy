@@ -17,10 +17,12 @@ use super::Cacher;
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 struct PriorityKey(u64, String);
 
+type KV = HashMap<String, (u64, Vec<u8>)>;
+
 #[derive(Clone, Default)]
 pub struct MemoryCacher {
     priority_queue: Arc<RwLock<BTreeSet<PriorityKey>>>,
-    kv: Arc<RwLock<HashMap<String, (u64, Vec<u8>)>>>,
+    kv: Arc<RwLock<KV>>,
 }
 
 impl MemoryCacher {
@@ -91,7 +93,7 @@ impl Cacher for MemoryCacher {
                         self.clean_expired_values();
                     }
 
-                    if value.len() > 0 {
+                    if !value.is_empty() {
                         return Ok(value.clone());
                     }
                 }

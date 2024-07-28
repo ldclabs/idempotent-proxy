@@ -2,7 +2,7 @@ use candid::CandidType;
 use serde::Deserialize;
 use std::time::Duration;
 
-use crate::{store, tasks};
+use crate::{cose::CoseClient, store, tasks};
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub enum ChainArgs {
@@ -16,6 +16,7 @@ pub struct InitArgs {
     proxy_token_refresh_interval: u64, // seconds
     subnet_size: u64,       // set to 0 to disable receiving cycles
     service_fee: u64,       // in cycles
+    cose: Option<CoseClient>,
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
@@ -23,6 +24,7 @@ pub struct UpgradeArgs {
     proxy_token_refresh_interval: Option<u64>, // seconds
     subnet_size: Option<u64>,
     service_fee: Option<u64>, // in cycles
+    cose: Option<CoseClient>,
 }
 
 #[ic_cdk::init]
@@ -42,6 +44,7 @@ fn init(args: Option<ChainArgs>) {
                 } else {
                     100_000_000
                 };
+                s.cose = args.cose;
             });
         }
         ChainArgs::Upgrade(_) => {
@@ -89,6 +92,9 @@ fn post_upgrade(args: Option<ChainArgs>) {
                 if let Some(service_fee) = args.service_fee {
                     s.service_fee = service_fee;
                 }
+                if let Some(cose) = args.cose {
+                    s.cose = Some(cose);
+                }
             });
         }
         Some(ChainArgs::Init(_)) => {
@@ -101,6 +107,7 @@ fn post_upgrade(args: Option<ChainArgs>) {
 
     ic_cdk_timers::set_timer(Duration::from_secs(0), || {
         ic_cdk::spawn(async {
+            store::state::init_ecdsa_public_key().await;
             tasks::refresh_proxy_token().await;
         })
     });

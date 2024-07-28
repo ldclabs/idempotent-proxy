@@ -1,17 +1,19 @@
-use candid::{Nat, Principal};
+use candid::{CandidType, Nat, Principal};
 use ciborium::into_writer;
 use futures::FutureExt;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, HttpResponse};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 mod agent;
+mod cose;
 mod cycles;
 mod ecdsa;
 mod init;
 mod store;
 mod tasks;
 
-use crate::init::ChainArgs;
+use crate::{agent::Agent, cose::CoseClient, init::ChainArgs};
 
 static ANONYMOUS: Principal = Principal::anonymous();
 
@@ -39,9 +41,9 @@ fn validate_admin_set_managers(args: BTreeSet<Principal>) -> Result<(), String> 
 async fn admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
     validate_admin_set_agents(agents.clone())?;
 
-    let (ecdsa_key_name, proxy_token_refresh_interval) =
-        store::state::with(|s| (s.ecdsa_key_name.clone(), s.proxy_token_refresh_interval));
-    tasks::update_proxy_token(ecdsa_key_name, proxy_token_refresh_interval, agents).await;
+    let (signer, proxy_token_refresh_interval) =
+        store::state::with(|s| (s.signer(), s.proxy_token_refresh_interval));
+    tasks::update_proxy_token(signer, proxy_token_refresh_interval, agents).await;
     Ok(())
 }
 
@@ -64,14 +66,43 @@ fn admin_remove_caller(id: Principal) -> Result<bool, String> {
     store::state::with_mut(|r| Ok(r.allowed_callers.remove(&id)))
 }
 
+#[derive(CandidType, Deserialize, Serialize)]
+pub struct StateInfo {
+    pub ecdsa_key_name: String,
+    pub proxy_token_public_key: String,
+    pub proxy_token_refresh_interval: u64, // seconds
+    pub agents: Vec<Agent>,
+    pub managers: BTreeSet<Principal>,
+    pub subnet_size: u64,
+    pub service_fee: u64, // in cycles
+    pub incoming_cycles: u128,
+    pub uncollectible_cycles: u128,
+    pub cose: Option<CoseClient>,
+}
+
 #[ic_cdk::query]
-fn get_state() -> Result<store::State, ()> {
-    let mut s = store::state::with(|s| s.clone());
-    if is_controller_or_manager().is_err() {
-        s.agents.iter_mut().for_each(|a| {
-            a.proxy_token = None;
-        })
-    }
+fn get_state() -> Result<StateInfo, ()> {
+    let s = store::state::with(|s| StateInfo {
+        ecdsa_key_name: s.ecdsa_key_name.clone(),
+        proxy_token_public_key: s.proxy_token_public_key.clone(),
+        proxy_token_refresh_interval: s.proxy_token_refresh_interval,
+        agents: s
+            .agents
+            .iter()
+            .map(|a| Agent {
+                name: a.name.clone(),
+                endpoint: a.endpoint.clone(),
+                max_cycles: a.max_cycles,
+                proxy_token: a.proxy_token.clone(),
+            })
+            .collect(),
+        managers: s.managers.clone(),
+        subnet_size: s.subnet_size,
+        service_fee: s.service_fee,
+        incoming_cycles: s.incoming_cycles,
+        uncollectible_cycles: s.uncollectible_cycles,
+        cose: s.cose.clone(),
+    });
     Ok(s)
 }
 
@@ -255,5 +286,22 @@ fn is_controller_or_manager() -> Result<(), String> {
         Err("user is not a controller or manager".to_string())
     }
 }
+
+#[cfg(all(
+    target_arch = "wasm32",
+    target_vendor = "unknown",
+    target_os = "unknown"
+))]
+/// A getrandom implementation that always fails
+pub fn always_fail(_buf: &mut [u8]) -> Result<(), getrandom::Error> {
+    Err(getrandom::Error::UNSUPPORTED)
+}
+
+#[cfg(all(
+    target_arch = "wasm32",
+    target_vendor = "unknown",
+    target_os = "unknown"
+))]
+getrandom::register_custom_getrandom!(always_fail);
 
 ic_cdk::export_candid!();

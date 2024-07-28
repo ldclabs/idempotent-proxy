@@ -13,6 +13,7 @@ type CanisterHttpRequestArgument = record {
   headers : vec HttpHeader;
 };
 type ChainArgs = variant { Upgrade : UpgradeArgs; Init : InitArgs };
+type CoseClient = record { id : principal; namespace : text };
 type HttpHeader = record { value : text; name : text };
 type HttpMethod = variant { get; head; post };
 type HttpResponse = record {
@@ -23,18 +24,19 @@ type HttpResponse = record {
 type InitArgs = record {
   service_fee : nat64;
   ecdsa_key_name : text;
+  cose : opt CoseClient;
   proxy_token_refresh_interval : nat64;
   subnet_size : nat64;
 };
 type Result = variant { Ok : bool; Err : text };
 type Result_1 = variant { Ok; Err : text };
-type Result_2 = variant { Ok : State; Err };
-type State = record {
+type Result_2 = variant { Ok : StateInfo; Err };
+type StateInfo = record {
   proxy_token_public_key : text;
   service_fee : nat64;
   ecdsa_key_name : text;
   managers : vec principal;
-  allowed_callers : vec principal;
+  cose : opt CoseClient;
   uncollectible_cycles : nat;
   agents : vec Agent;
   incoming_cycles : nat;
@@ -48,6 +50,7 @@ type TransformContext = record {
 };
 type UpgradeArgs = record {
   service_fee : opt nat64;
+  cose : opt CoseClient;
   proxy_token_refresh_interval : opt nat64;
   subnet_size : opt nat64;
 };

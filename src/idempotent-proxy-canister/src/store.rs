@@ -1,18 +1,26 @@
-use candid::{CandidType, Principal};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64_url, Engine};
+use candid::Principal;
 use ciborium::{from_reader, into_writer};
+use ic_cose_types::cose::{format_error, sha3_256};
 use ic_stable_structures::{
     memory_manager::{MemoryId, MemoryManager, VirtualMemory},
     storable::Bound,
     DefaultMemoryImpl, StableCell, Storable,
 };
 use serde::{Deserialize, Serialize};
+use serde_bytes::ByteBuf;
 use std::{borrow::Cow, cell::RefCell, collections::BTreeSet};
 
-use crate::{agent::Agent, cycles::Calculator, ecdsa::get_proxy_token_public_key};
+use crate::{
+    agent::Agent,
+    cose::CoseClient,
+    cycles::Calculator,
+    ecdsa::{public_key_with, sign_with},
+};
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 
-#[derive(CandidType, Clone, Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct State {
     pub ecdsa_key_name: String,
     pub proxy_token_public_key: String,
@@ -28,6 +36,18 @@ pub struct State {
     pub incoming_cycles: u128,
     #[serde(default)]
     pub uncollectible_cycles: u128,
+
+    #[serde(default)]
+    pub cose: Option<CoseClient>,
+}
+
+impl State {
+    pub fn signer(&self) -> Signer {
+        Signer {
+            key_name: self.ecdsa_key_name.clone(),
+            cose: self.cose.clone(),
+        }
+    }
 }
 
 impl Storable for State {
@@ -41,6 +61,57 @@ impl Storable for State {
 
     fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
         from_reader(&bytes[..]).expect("failed to decode State data")
+    }
+}
+
+pub struct Signer {
+    pub key_name: String,
+    pub cose: Option<CoseClient>,
+}
+
+static SIGN_PROXY_TOKEN_PATH: &[u8] = b"sign_proxy_token";
+
+impl Signer {
+    pub async fn ecdsa_public_key(&self) -> Result<String, String> {
+        match self.cose {
+            Some(ref cose) => cose
+                .ecdsa_public_key(vec![ByteBuf::from(SIGN_PROXY_TOKEN_PATH)])
+                .await
+                .map(|v| base64_url.encode(v)),
+            None => public_key_with(&self.key_name, vec![SIGN_PROXY_TOKEN_PATH.to_vec()])
+                .await
+                .map(|v| base64_url.encode(v.public_key)),
+        }
+    }
+
+    // use Idempotent Proxy's Token: Token(pub u64, pub String, pub ByteBuf);
+    // https://github.com/ldclabs/idempotent-proxy/blob/main/src/idempotent-proxy-types/src/auth.rs#L15
+    pub async fn sign_proxy_token(
+        &self,
+        expire_at: u64, // UNIX timestamp, in seconds
+        message: &str,  // use RPCAgent.name as message
+    ) -> Result<String, String> {
+        let mut buf: Vec<u8> = Vec::new();
+        into_writer(&(expire_at, message), &mut buf)
+            .expect("failed to encode Token in CBOR format");
+        let digest = sha3_256(&buf);
+
+        let sig = match self.cose {
+            Some(ref cose) => {
+                cose.ecdsa_sign(
+                    vec![ByteBuf::from(SIGN_PROXY_TOKEN_PATH)],
+                    ByteBuf::from(digest),
+                )
+                .await
+            }
+            None => sign_with(&self.key_name, vec![SIGN_PROXY_TOKEN_PATH.to_vec()], digest)
+                .await
+                .map(ByteBuf::from),
+        };
+
+        buf.clear();
+        into_writer(&(expire_at, message, sig?), &mut buf).map_err(format_error)?;
+        Ok(base64_url.encode(buf))
     }
 }
 
@@ -112,27 +183,6 @@ pub mod state {
         });
     }
 
-    pub async fn init_ecdsa_public_key() {
-        let ecdsa_key_name = with(|r| {
-            if r.proxy_token_public_key.is_empty() && !r.ecdsa_key_name.is_empty() {
-                Some(r.ecdsa_key_name.clone())
-            } else {
-                None
-            }
-        });
-
-        if let Some(ecdsa_key_name) = ecdsa_key_name {
-            let pk = get_proxy_token_public_key(&ecdsa_key_name)
-                .await
-                .unwrap_or_else(|err| {
-                    ic_cdk::trap(&format!("failed to retrieve ECDSA public key: {err}"))
-                });
-            with_mut(|r| {
-                r.proxy_token_public_key = pk;
-            });
-        }
-    }
-
     pub fn load() {
         STATE_STORE.with(|r| {
             let s = r.borrow_mut().get().clone();
@@ -150,5 +200,21 @@ pub mod state {
                     .expect("failed to set STATE data");
             });
         });
+    }
+
+    pub async fn init_ecdsa_public_key() {
+        let signer = with(|r| r.signer());
+
+        match signer.ecdsa_public_key().await {
+            Ok(public_key) => {
+                ic_cdk::print("successfully retrieved ECDSA public key");
+                with_mut(|r| {
+                    r.proxy_token_public_key = public_key;
+                });
+            }
+            Err(err) => {
+                ic_cdk::print(&format!("failed to retrieve ECDSA public key: {err}"));
+            }
+        }
     }
 }
