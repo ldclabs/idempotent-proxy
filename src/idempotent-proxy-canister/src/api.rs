@@ -22,7 +22,7 @@ pub struct StateInfo {
 }
 
 #[ic_cdk::query]
-fn get_state() -> Result<StateInfo, ()> {
+fn get_state() -> Result<StateInfo, String> {
     let s = store::state::with(|s| StateInfo {
         ecdsa_key_name: s.ecdsa_key_name.clone(),
         proxy_token_public_key: s.proxy_token_public_key.clone(),
@@ -45,6 +45,11 @@ fn get_state() -> Result<StateInfo, ()> {
         cose: s.cose.clone(),
     });
     Ok(s)
+}
+
+#[ic_cdk::query]
+fn is_caller(id: Principal) -> Result<bool, String> {
+    store::state::with(|s| Ok(s.allowed_callers.contains(&id)))
 }
 
 #[ic_cdk::query]

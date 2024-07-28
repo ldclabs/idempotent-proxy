@@ -28,8 +28,9 @@ type InitArgs = record {
   proxy_token_refresh_interval : nat64;
   subnet_size : nat64;
 };
-type Result = variant { Ok; Err : text };
-type Result_1 = variant { Ok : StateInfo; Err };
+type Result = variant { Ok : bool; Err : text };
+type Result_1 = variant { Ok; Err : text };
+type Result_2 = variant { Ok : StateInfo; Err : text };
 type StateInfo = record {
   freezing_threshold : nat64;
   ecdsa_key_name : text;
@@ -53,18 +54,20 @@ type UpgradeArgs = record {
   subnet_size : opt nat64;
 };
 service : (opt ChainArgs) -> {
-  admin_add_callers : (vec principal) -> (Result);
-  admin_add_managers : (vec principal) -> (Result);
-  admin_remove_callers : (vec principal) -> (Result);
-  admin_remove_managers : (vec principal) -> (Result);
-  admin_set_agents : (vec Agent) -> (Result);
-  get_state : () -> (Result_1) query;
+  admin_add_caller : (principal) -> (Result);
+  admin_add_callers : (vec principal) -> (Result_1);
+  admin_add_managers : (vec principal) -> (Result_1);
+  admin_remove_callers : (vec principal) -> (Result_1);
+  admin_remove_managers : (vec principal) -> (Result_1);
+  admin_set_agents : (vec Agent) -> (Result_1);
+  get_state : () -> (Result_2) query;
+  is_caller : (principal) -> (Result) query;
   parallel_call_all_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
   parallel_call_any_ok : (CanisterHttpRequestArgument) -> (HttpResponse);
   parallel_call_cost : (CanisterHttpRequestArgument) -> (nat) query;
   proxy_http_request : (CanisterHttpRequestArgument) -> (HttpResponse);
   proxy_http_request_cost : (CanisterHttpRequestArgument) -> (nat) query;
-  validate_admin_add_managers : (vec principal) -> (Result);
-  validate_admin_remove_managers : (vec principal) -> (Result);
-  validate_admin_set_agents : (vec Agent) -> (Result);
+  validate_admin_add_managers : (vec principal) -> (Result_1);
+  validate_admin_remove_managers : (vec principal) -> (Result_1);
+  validate_admin_set_agents : (vec Agent) -> (Result_1);
 }

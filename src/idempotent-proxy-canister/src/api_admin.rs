@@ -1,5 +1,5 @@
 use candid::Principal;
-use ic_cose_types::validate_principals;
+use ic_cose_types::{validate_principals, ANONYMOUS};
 use std::collections::BTreeSet;
 
 use crate::{agent, is_controller, is_controller_or_manager, store, tasks};
@@ -20,6 +20,15 @@ fn admin_remove_managers(args: BTreeSet<Principal>) -> Result<(), String> {
         r.managers.retain(|p| !args.contains(p));
         Ok(())
     })
+}
+
+#[ic_cdk::update(guard = "is_controller_or_manager")]
+fn admin_add_caller(id: Principal) -> Result<bool, String> {
+    if id == ANONYMOUS {
+        Err("anonymous caller cannot be added".to_string())?;
+    }
+
+    store::state::with_mut(|r| Ok(r.allowed_callers.insert(id)))
 }
 
 #[ic_cdk::update(guard = "is_controller_or_manager")]
