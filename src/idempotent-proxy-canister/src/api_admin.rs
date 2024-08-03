@@ -28,14 +28,20 @@ fn admin_add_caller(id: Principal) -> Result<bool, String> {
         Err("anonymous caller cannot be added".to_string())?;
     }
 
-    store::state::with_mut(|r| Ok(r.allowed_callers.insert(id)))
+    store::state::with_mut(|r| {
+        let has = r.callers.contains_key(&id);
+        r.callers.entry(id).or_insert((0, 0));
+        Ok(!has)
+    })
 }
 
 #[ic_cdk::update(guard = "is_controller_or_manager")]
-fn admin_add_callers(mut args: BTreeSet<Principal>) -> Result<(), String> {
+fn admin_add_callers(args: BTreeSet<Principal>) -> Result<(), String> {
     validate_principals(&args)?;
     store::state::with_mut(|r| {
-        r.allowed_callers.append(&mut args);
+        args.into_iter().for_each(|p| {
+            r.callers.entry(p).or_insert((0, 0));
+        });
         Ok(())
     })
 }
@@ -44,7 +50,9 @@ fn admin_add_callers(mut args: BTreeSet<Principal>) -> Result<(), String> {
 fn admin_remove_callers(args: BTreeSet<Principal>) -> Result<(), String> {
     validate_principals(&args)?;
     store::state::with_mut(|r| {
-        r.allowed_callers.retain(|p| !args.contains(p));
+        args.iter().for_each(|p| {
+            r.callers.remove(p);
+        });
         Ok(())
     })
 }

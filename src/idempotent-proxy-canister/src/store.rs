@@ -9,7 +9,11 @@ use ic_stable_structures::{
 };
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
-use std::{borrow::Cow, cell::RefCell, collections::BTreeSet};
+use std::{
+    borrow::Cow,
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+};
 
 use crate::{
     agent::Agent,
@@ -27,7 +31,9 @@ pub struct State {
     pub proxy_token_refresh_interval: u64, // seconds
     pub agents: Vec<Agent>,
     pub managers: BTreeSet<Principal>,
-    pub allowed_callers: BTreeSet<Principal>,
+    pub allowed_callers: BTreeSet<Principal>, //deprecated
+    #[serde(default)]
+    pub callers: BTreeMap<Principal, (u128, u64)>,
     #[serde(default)]
     pub subnet_size: u64,
     #[serde(default)]
@@ -154,7 +160,16 @@ pub mod state {
     }
 
     pub fn is_allowed(caller: &Principal) -> bool {
-        STATE.with(|r| r.borrow().allowed_callers.contains(caller))
+        STATE.with(|r| r.borrow().callers.contains_key(caller))
+    }
+
+    pub fn update_caller_state(caller: &Principal, cycles: u128, now_ms: u64) {
+        STATE.with(|r| {
+            r.borrow_mut().callers.get_mut(caller).map(|v| {
+                v.0 = v.0.saturating_add(cycles);
+                v.1 = now_ms;
+            })
+        });
     }
 
     pub fn with<R>(f: impl FnOnce(&State) -> R) -> R {
@@ -185,7 +200,14 @@ pub mod state {
 
     pub fn load() {
         STATE_STORE.with(|r| {
-            let s = r.borrow_mut().get().clone();
+            let mut s = r.borrow().get().clone();
+            if !s.allowed_callers.is_empty() {
+                s.allowed_callers.iter().for_each(|p| {
+                    s.callers.entry(*p).or_insert((0, 0));
+                });
+                s.allowed_callers.clear();
+            }
+
             STATE.with(|h| {
                 *h.borrow_mut() = s;
             });

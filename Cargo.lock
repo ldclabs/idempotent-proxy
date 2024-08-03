@@ -1244,7 +1244,7 @@ dependencies = [
 
 [[package]]
 name = "idempotent-proxy-canister"
-version = "1.1.6"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -1265,7 +1265,7 @@ dependencies = [
 
 [[package]]
 name = "idempotent-proxy-server"
-version = "1.1.6"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1294,7 +1294,7 @@ dependencies = [
 
 [[package]]
 name = "idempotent-proxy-types"
-version = "1.1.6"
+version = "1.2.0"
 dependencies = [
  "base64 0.22.1",
  "ciborium",

@@ -15,7 +15,7 @@ strip = true
 opt-level = 's'
 
 [workspace.package]
-version = "1.1.6"
+version = "1.2.0"
 edition = "2021"
 repository = "https://github.com/ldclabs/idempotent-proxy"
 keywords = ["idempotent", "reverse", "proxy", "icp"]

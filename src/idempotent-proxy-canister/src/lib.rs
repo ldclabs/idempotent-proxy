@@ -1,6 +1,5 @@
 use candid::Principal;
 use ic_cdk::api::management_canister::http_request::{CanisterHttpRequestArgument, HttpResponse};
-use ic_cose_types::types::state::StateInfo;
 use std::collections::BTreeSet;
 
 mod agent;
@@ -13,7 +12,8 @@ mod init;
 mod store;
 mod tasks;
 
-use crate::init::ChainArgs;
+use api::StateInfo;
+use init::ChainArgs;
 
 fn is_controller() -> Result<(), String> {
     let caller = ic_cdk::caller();
