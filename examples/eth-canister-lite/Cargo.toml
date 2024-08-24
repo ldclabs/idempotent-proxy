@@ -10,16 +10,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-async-trait = "0.1"
-bytes = "1.6"
 candid = "0.10"
 ic-cdk = "0.14"
-ic-cdk-timers = "0.8"
-ic-stable-structures = "0.6"
-# getrandom = { version = "0.2", features = ["custom"] }
-base64 = { workspace = true }
-ciborium = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_bytes = { workspace = true }
-sha3 = { workspace = true }

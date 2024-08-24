@@ -21,12 +21,9 @@ base64 = { workspace = true }
 ciborium = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 serde_bytes = { workspace = true }
-sha3 = { workspace = true }
-bytes = "1.6"
 candid = "0.10"
-ic-cdk = "0.14"
+ic-cdk = "0.15"
 ic-cdk-timers = "0.8"
 ic-stable-structures = "0.6"
 ic_cose_types = "0.1"

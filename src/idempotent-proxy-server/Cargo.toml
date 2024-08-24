@@ -24,20 +24,17 @@ log = { workspace = true }
 structured-logger = { workspace = true }
 http = { workspace = true }
 rustis = { workspace = true }
-bb8 = { workspace = true }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 ciborium = { workspace = true }
-anyhow = { workspace = true }
 k256 = { workspace = true }
 ed25519-dalek = { workspace = true }
 base64 = { workspace = true }
 idempotent-proxy-types = { path = "../idempotent-proxy-types", version = "1" }
 
 [dev-dependencies]
-rand_core = "0.6"
 hex = { package = "hex-conservative", version = "0.2", default-features = false, features = [
   "alloc",
 ] }
