@@ -30,6 +30,7 @@ type InitArgs = record {
 };
 type Result = variant { Ok : bool; Err : text };
 type Result_1 = variant { Ok; Err : text };
+type Result_2 = variant { Ok : text; Err : text };
 type StateInfo = record {
   proxy_token_public_key : text;
   service_fee : nat64;
@@ -68,6 +69,9 @@ service : (opt ChainArgs) -> {
   proxy_http_request : (CanisterHttpRequestArgument) -> (HttpResponse);
   proxy_http_request_cost : (CanisterHttpRequestArgument) -> (nat) query;
   state_info : () -> (StateInfo) query;
+  validate2_admin_add_managers : (vec principal) -> (Result_2);
+  validate2_admin_remove_managers : (vec principal) -> (Result_2);
+  validate2_admin_set_agents : (vec Agent) -> (Result_2);
   validate_admin_add_managers : (vec principal) -> (Result_1);
   validate_admin_remove_managers : (vec principal) -> (Result_1);
   validate_admin_set_agents : (vec Agent) -> (Result_1);

@@ -67,6 +67,7 @@ async fn admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
     Ok(())
 }
 
+// Use validate2_admin_add_managers instead of validate_admin_add_managers
 #[ic_cdk::update]
 fn validate_admin_add_managers(args: BTreeSet<Principal>) -> Result<(), String> {
     validate_principals(&args)?;
@@ -74,11 +75,25 @@ fn validate_admin_add_managers(args: BTreeSet<Principal>) -> Result<(), String> 
 }
 
 #[ic_cdk::update]
+fn validate2_admin_add_managers(args: BTreeSet<Principal>) -> Result<String, String> {
+    validate_principals(&args)?;
+    Ok("ok".to_string())
+}
+
+// Use validate2_admin_remove_managers instead of validate_admin_remove_managers
+#[ic_cdk::update]
 fn validate_admin_remove_managers(args: BTreeSet<Principal>) -> Result<(), String> {
     validate_principals(&args)?;
     Ok(())
 }
 
+#[ic_cdk::update]
+fn validate2_admin_remove_managers(args: BTreeSet<Principal>) -> Result<String, String> {
+    validate_principals(&args)?;
+    Ok("ok".to_string())
+}
+
+// Use validate2_admin_set_agents instead of validate_admin_set_agents
 #[ic_cdk::update]
 fn validate_admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
     if agents.is_empty() {
@@ -86,4 +101,13 @@ fn validate_admin_set_agents(agents: Vec<agent::Agent>) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[ic_cdk::update]
+fn validate2_admin_set_agents(agents: Vec<agent::Agent>) -> Result<String, String> {
+    if agents.is_empty() {
+        return Err("agents cannot be empty".to_string());
+    }
+
+    Ok("ok".to_string())
 }
