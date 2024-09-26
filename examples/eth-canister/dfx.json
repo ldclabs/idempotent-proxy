@@ -3,6 +3,7 @@
     "eth-canister": {
       "candid": "eth-canister.did",
       "package": "eth-canister",
+      "crate": "eth_canister",
       "type": "rust"
     }
   },

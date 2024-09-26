@@ -6,7 +6,9 @@
         "node_compatibility": true
       },
       "package": "idempotent-proxy-canister",
+      "crate": "idempotent_proxy_canister",
       "optimize": "cycles",
+      "gzip": true,
       "type": "rust"
     }
   },

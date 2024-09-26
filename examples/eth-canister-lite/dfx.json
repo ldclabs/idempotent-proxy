@@ -3,6 +3,7 @@
     "eth-canister-lite": {
       "candid": "eth-canister-lite.did",
       "package": "eth-canister-lite",
+      "crate": "eth_canister_lite",
       "type": "rust"
     },
     "idempotent-proxy-canister": {
