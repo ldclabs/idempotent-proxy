@@ -23,8 +23,8 @@ futures = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 candid = "0.10"
-ic-cdk = "0.15"
-ic-cdk-timers = "0.8"
+ic-cdk = "0.16"
+ic-cdk-timers = "0.10"
 ic-stable-structures = "0.6"
-ic_cose_types = "0.1"
+ic_cose_types = "0.3"
 getrandom = { version = "0.2", features = ["custom"] }

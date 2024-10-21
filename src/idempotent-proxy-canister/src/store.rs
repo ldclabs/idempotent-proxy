@@ -235,7 +235,7 @@ pub mod state {
                 });
             }
             Err(err) => {
-                ic_cdk::print(&format!("failed to retrieve ECDSA public key: {err}"));
+                ic_cdk::print(format!("failed to retrieve ECDSA public key: {err}"));
             }
         }
     }

@@ -15,7 +15,7 @@ strip = true
 opt-level = 's'
 
 [workspace.package]
-version = "1.2.1"
+version = "1.2.2"
 edition = "2021"
 repository = "https://github.com/ldclabs/idempotent-proxy"
 keywords = ["idempotent", "reverse", "proxy", "icp"]
@@ -32,7 +32,7 @@ axum = { version = "0.7", features = [
   "tokio",
   "query",
 ], default-features = true }
-axum-server = { version = "0.6", features = ["tls-rustls"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = [
   "rustls-tls",
