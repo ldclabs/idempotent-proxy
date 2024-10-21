@@ -131,7 +131,7 @@ async function polling_get(
   while (counter > 0) {
     const value = await stub.get()
     if (value) {
-      return value
+      return new Uint8Array(value)
     }
 
     counter -= 1
